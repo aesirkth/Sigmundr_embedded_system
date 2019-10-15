@@ -1,0 +1,7 @@
+BMP.c:13:6:readBMP	32	dynamic
+BMP.c:30:10:read16BMP	32	static
+BMP.c:46:6:readParamBmp	24	static
+BMP.c:65:10:initBMP	40	static
+BMP.c:84:6:bmpCompensate	48	static
+BMP.c:116:6:readBMPCal	56	static
+BMP.c:129:6:convBMP	16	static
