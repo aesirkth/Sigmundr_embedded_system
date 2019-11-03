@@ -33,7 +33,7 @@ uint32_t initMAG(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin,  SPI_HandleTypeD
 void readMAG(int16_t *MAG_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
 	uint16_t data[3] = {0};
-	read16N(LIS_DATA_REG, &data, 3, NSS_GPIO_Port, NSS_Pin, hspiN);
+	read16N(LIS_DATA_REG, (uint16_t*)&data, 3, NSS_GPIO_Port, NSS_Pin, hspiN);
 	*MAG_raw_data++ = (int16_t) data[0];
 	*MAG_raw_data++ = (int16_t) data[1];
 	*MAG_raw_data = (int16_t) data[2];

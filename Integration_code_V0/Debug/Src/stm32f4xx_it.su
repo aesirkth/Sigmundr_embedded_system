@@ -1,3 +1,8 @@
-stm32f4xx_it.c:70:6:SVC_Handler	0	static
-stm32f4xx_it.c:83:6:PendSV_Handler	0	static
-stm32f4xx_it.c:96:6:SysTick_Handler	0	static
+stm32f4xx_it.c:72:6:SVC_Handler	0	static
+stm32f4xx_it.c:85:6:PendSV_Handler	0	static
+stm32f4xx_it.c:98:6:SysTick_Handler	0	static
+stm32f4xx_it.c:119:6:EXTI1_IRQHandler	8	static
+stm32f4xx_it.c:139:6:EXTI9_5_IRQHandler	0	static
+stm32f4xx_it.c:153:6:TIM3_IRQHandler	4	static
+stm32f4xx_it.c:169:6:DMA2_Stream0_IRQHandler	0	static
+stm32f4xx_it.c:183:6:DMA2_Stream2_IRQHandler	0	static

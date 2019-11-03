@@ -14,8 +14,7 @@
 void Error_Handler(void);
 
 uint16_t readPITOT(I2C_HandleTypeDef *hi2cN);
-float convPITOT(uint16_t PITOT_raw);
-float convSpeedPITOT(float pressure);
+float convSpeedPITOT(uint16_t PITOT_raw);
 
 #define PITOT_ADDRESS		0x28	//I2C address of the sensor
 

@@ -81,7 +81,7 @@ uint32_t initBMP(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDe
 // Compensate the raw reading adc_T and adc_P from the baro
 // T is given with a resolution of 0.01DegC, ie "5123" = 51.23°C
 // divide p value to get the pressure in Pa. "24674867" = 24674867/256 = 96386.2 Pa
-void bmpCompensate(param Bmp, int32_t bmpRaw[2], int32_t *bmpCompensated)
+void bmpCompensate(int32_t bmpRaw[2], int32_t *bmpCompensated, param Bmp)
 {
 	int32_t t_fine;
 	int32_t var1, var2, T;
@@ -113,12 +113,12 @@ void bmpCompensate(param Bmp, int32_t bmpRaw[2], int32_t *bmpCompensated)
 
 //Performances, 72Mhz uC, 4.5Mhz SPI : 34us
 //This function read the data from the BMP and compensate it, result is in bmpCompensated (pressure and temperature)
-void readBMPCal(param Bmp, int32_t *bmpCompensated, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
+void readBMPCal(int32_t *bmpCompensated, param Bmp, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
 	int32_t data[2] = {0};
 	int32_t bmpRaw[2] = {0};
 	readBMP(&bmpRaw, 2, NSS_GPIO_Port, NSS_Pin, hspiN); //Read BMP data registers
-	bmpCompensate(Bmp, bmpRaw, &data);
+	bmpCompensate(bmpRaw, &data, Bmp);
 	*bmpCompensated++ = data[0];
 	*bmpCompensated = data[1];
 }

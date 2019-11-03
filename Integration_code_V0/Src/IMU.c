@@ -37,7 +37,7 @@ uint32_t initIMU(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDe
 void readIMU(int16_t *IMU_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
 	uint16_t data[7] = {0};
-	read16N(ICM20602_DATA_REG, &data, 7, NSS_GPIO_Port, NSS_Pin, hspiN);
+	read16N(ICM20602_DATA_REG, (uint16_t*)&data, 7, NSS_GPIO_Port, NSS_Pin, hspiN);
 	*IMU_raw_data++ = (int16_t) data[0];
 	*IMU_raw_data++ = (int16_t) data[1];
 	*IMU_raw_data++ = (int16_t) data[2];
@@ -47,17 +47,19 @@ void readIMU(int16_t *IMU_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pi
 	*IMU_raw_data = (int16_t) data[6];
 }
 
-//Performances, 72Mhz uC, 4.5Mhz SPI : 46us
+//Performances for 1 cycle, 72Mhz uC, 4.5Mhz SPI : 46us
 // Convert data into float to debug, check, processing, takes as input float and int16_t (booth 7 values)
 //If scale of the IMU is changed, this function has to be modified (see datasheet)
-void convIMU(int16_t *IMU_raw_data, float *IMUConv)
+void convIMU(int16_t *IMU_raw_data, float *IMUConv, uint32_t cycle)
 {
-	*IMUConv++ = *IMU_raw_data++ / 2048.0; 									//in g
-	*IMUConv++ = *IMU_raw_data++ / 2048.0;
-	*IMUConv++ = *IMU_raw_data++ / 2048.0;
-	*IMUConv++ = (*IMU_raw_data++ / 326.8) + 25.0;							//in °C
-	*IMUConv++ = *IMU_raw_data++ / 65.5; 									//in dps
-	*IMUConv++ = *IMU_raw_data++ / 65.5;
-	*IMUConv = *IMU_raw_data / 65.5;
+	for(uint32_t i=0; i<cycle; i++){
+		*IMUConv++ = *IMU_raw_data++ / 2048.0; 									//in g
+		*IMUConv++ = *IMU_raw_data++ / 2048.0;
+		*IMUConv++ = *IMU_raw_data++ / 2048.0;
+		*IMUConv++ = (*IMU_raw_data++ / 326.8) + 25.0;							//in °C
+		*IMUConv++ = *IMU_raw_data++ / 65.5; 									//in dps
+		*IMUConv++ = *IMU_raw_data++ / 65.5;
+		*IMUConv++ = *IMU_raw_data++ / 65.5;
+	}
 }
 

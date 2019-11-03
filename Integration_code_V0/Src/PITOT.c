@@ -18,19 +18,15 @@ uint16_t readPITOT(I2C_HandleTypeDef *hi2cN)
 }
 
 
-//Convert data of the PITOT tube in Pascal
-float convPITOT(uint16_t PITOT_raw)
+//Convert data of the PITOT tube in m/s  p = 1/2 * rho * U^2. This is a rough estimation, can be improved.
+float convSpeedPITOT(uint16_t PITOT_raw)
 {
+	//Convert first the raw data to pressure
 	uint16_t output_min = 1638, output_max = 14745; //10% to 90% calibration with 2^14 counts
 	float pressure = 0.0, pressure_min = 0.0, pressure_max = 5.0 * 34474; //in Pa (1 PSI = 34474 Pa)
 	pressure = (((float)(PITOT_raw - output_min))*(pressure_max - pressure_min) / (float)(output_max - output_min)) + pressure_min;
-	return pressure;
-}
 
-
-//Convert data of the PITOT tube in m/s  p = 1/2 * rho * U^2. This is a rough estimation, can be improved.
-float convSpeedPITOT(float pressure)
-{
+	//Convert the pressure to velocity
 	float speed = 0.0, rho = 1.225;
 	speed = sqrt(2*pressure/rho);	//sqrt is slow, rho=1.225 can surely be better tuned
 	return speed;

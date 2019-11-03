@@ -18,7 +18,7 @@ void Error_Handler(void);
 
 uint32_t initIMU(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
 void readIMU(int16_t *IMU_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
-void convIMU(int16_t *IMU_raw_data, float *IMUConv);
+void convIMU(int16_t *IMU_raw_data, float *IMUConv, uint32_t cycle);
 
 /* Register Position ---------------------------------------------------------*/
 #define ICM20602_PWR_MGMT_1 		0x6b

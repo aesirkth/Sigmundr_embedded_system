@@ -26,8 +26,8 @@ void readBMP(int32_t *data, uint8_t Number, GPIO_TypeDef *NSS_GPIO_Port, uint16_
 uint16_t read16BMP(uint8_t registerAdress, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
 void readParamBmp(param *bmp, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
 uint32_t initBMP(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
-void bmpCompensate(param Bmp, int32_t bmpRaw[2], int32_t *bmpCompensated);
-void readBMPCal(param Bmp, int32_t *bmpCompensated, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
+void bmpCompensate(int32_t bmpRaw[2], int32_t *bmpCompensated, param Bmp);
+void readBMPCal(int32_t *bmpCompensated, param Bmp, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
 void convBMP(int32_t *bmpCompensated, float *bmpConv);
 
 /* Register Position ---------------------------------------------------------*/

@@ -1,4 +1,6 @@
-main.c:73:14:sensorsInitialization	16	static
-main.c:177:6:SystemClock_Config	104	static
-main.c:94:5:main	272	static
-main.c:510:6:Error_Handler	0	static
+main.c:185:6:SystemClock_Config	192	static
+main.c:774:14:sensorsInitialization	16	static
+main.c:790:10:readSensors	280	static
+main.c:802:11:convertSensors	440	static
+main.c:97:5:main	920	static
+main.c:823:6:Error_Handler	0	static
