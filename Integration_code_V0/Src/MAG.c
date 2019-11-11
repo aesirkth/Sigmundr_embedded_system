@@ -30,20 +30,16 @@ uint32_t initMAG(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin,  SPI_HandleTypeD
 
 //Performances, 72Mhz uC, 4.5Mhz SPI : 29us
 //Read MAG data registers
-void readMAG(int16_t *MAG_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
+void readMAG(uint8_t *MAG_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
-	uint16_t data[3] = {0};
-	read16N(LIS_DATA_REG, (uint16_t*)&data, 3, NSS_GPIO_Port, NSS_Pin, hspiN);
-	*MAG_raw_data++ = (int16_t) data[0];
-	*MAG_raw_data++ = (int16_t) data[1];
-	*MAG_raw_data = (int16_t) data[2];
+	readN(LIS_DATA_REG, (uint8_t*) MAG_raw_data, 6, NSS_GPIO_Port, NSS_Pin, hspiN);
 }
 
 //Performances, 72Mhz uC, 4.5Mhz SPI : 29us
 //Convert data in Gauss (float)
-void convMAG(int16_t *MAG_raw_data, float *MAGConv)
+void convMAG(uint8_t *MAG_raw_data, float *MAGConv)
 {
-	*MAGConv++ = *MAG_raw_data++ / 6842.0; 			//in Gauss
-	*MAGConv++ = *MAG_raw_data++ / 6842.0;
-	*MAGConv = *MAG_raw_data / 6842.0;
+	*MAGConv++ = (*MAG_raw_data++ << 8 + *MAG_raw_data++) / 6842.0; 		//in Gauss
+	*MAGConv++ = (*MAG_raw_data++ << 8 + *MAG_raw_data++) / 6842.0;
+	*MAGConv = (*MAG_raw_data++ << 8 + *MAG_raw_data) / 6842.0;
 }

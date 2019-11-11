@@ -1,3 +1,3 @@
 MAG.c:14:10:initMAG	40	static
 MAG.c:33:6:readMAG	32	static
-MAG.c:44:6:convMAG	16	static
+MAG.c:40:6:convMAG	24	static

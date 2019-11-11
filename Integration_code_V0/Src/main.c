@@ -56,9 +56,17 @@ SD_HandleTypeDef hsd;
 
 SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi3;
+DMA_HandleTypeDef hdma_spi2_rx;
+DMA_HandleTypeDef hdma_spi2_tx;
+DMA_HandleTypeDef hdma_spi3_rx;
+DMA_HandleTypeDef hdma_spi3_tx;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+
+UART_HandleTypeDef huart6;
+DMA_HandleTypeDef hdma_usart6_rx;
+DMA_HandleTypeDef hdma_usart6_tx;
 
 /* USER CODE BEGIN PV */
 RTC_TimeTypeDef sTime = {0};								//time from RTC
@@ -82,6 +90,7 @@ static void MX_RTC_Init(void);
 static void MX_SDIO_SD_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_USART6_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -97,12 +106,15 @@ static void MX_TIM3_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint32_t readPin = 0;
-	uint32_t timePostLaunch = 0;
-	uint16_t Vbat1=0, Vbat2=0;									//Voltage batteries
+	uint32_t readPinPlug = 0;
+	uint32_t timerPostLaunch = 0;
 	ArrayRaw DataRawArray = {0};
+	ArrayRaw *pointDataRawArray = &DataRawArray;
+	ArrayRaw DataRawArrayFreez = {0};
+	ArrayRaw *pointDataRawArrayFreez = &DataRawArrayFreez;
 	ArrayConv DataConvArray = {{0.0}};
-	uint32_t cycle = 0;
+	ArrayRaw *pointDataConvArray = &DataConvArray;
+	uint32_t epoch = 0;
   /* USER CODE END 1 */
   
 
@@ -135,21 +147,25 @@ int main(void)
   MX_FATFS_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_USART6_UART_Init();
   /* USER CODE BEGIN 2 */
-   HAL_TIM_Base_Start_IT(&htim3);
-   err_msg |= sensorsInitialization(&Bmp2, &Bmp3);									//Initialization of sensors (IMU,BMP,MAG)
-   err_msg |= (HAL_ADC_Start_DMA(&hadc1, (uint32_t*)&Vbat1, 1) != HAL_OK) << 5;		//Initialization ADC1 (reading voltage Vbat1)
-   err_msg |= (HAL_ADC_Start_DMA(&hadc2, (uint32_t*)&Vbat2, 1) != HAL_OK) << 6;		//Initialization ADC2 (reading voltage Vbat2)
-   //err_msg |= test GPS communication		----- ADD THIS -----
+   //HAL_TIM_Base_Start_IT(&htim3);																//timer for the sampling
+   err_msg |= sensorsInitialization(&Bmp2, &Bmp3);												//Initialization of sensors (IMU,BMP,MAG)
+   if(HAL_ADC_Start_DMA(&hadc1, (uint16_t*) pointDataRawArray->Battery1, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC1 (reading voltage Vbat1)
+   if(HAL_ADC_Start_DMA(&hadc2, (uint16_t*) pointDataRawArray->Battery2, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC2 (reading voltage Vbat2)
    //err_msg |= SD card initialization		----- ADD THIS -----
 
-   while(readPin == 0){																//wait till liftoff wire is connected
-	   readPin = 1;
+   /*
+   while(readPinPlug == 0){																//wait till liftoff wire is connected
+	   readPinPlug = 1;
 	   for(uint32_t i=0; i<100; i++){												//make sure the connection is solid
-			   readPin &= HAL_GPIO_ReadPin(LIFTOFF_UMB_GPIO_Port, LIFTOFF_UMB_Pin);
+			   readPinPlug &= HAL_GPIO_ReadPin(LIFTOFF_UMB_GPIO_Port, LIFTOFF_UMB_Pin);
 			   HAL_Delay(10);
 	   }
    }
+   */
+   clearFIFO(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);		//clear the FIFO of the IMU
+   clearFIFO(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2); 	//clear the FIFO of the IMU
    arm = 1;
   /* USER CODE END 2 */
 
@@ -160,28 +176,54 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  while(sample == 0); 													//Wait till new sample time (change by interrupt)
+	  while(sample == 0); 												//Wait till new sample time (change by interrupt)
+	  htim3.Instance->CNT = 0;											//put back the CNT from timer3 (for sampling) to zero
 	  sample = 0;
-	  cycle++;
-	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 						//sTime.Hours .Minutes .Seconds .SubSeconds (up to 256).
-	  timePostLaunch = __HAL_TIM_GET_COUNTER(&htim2);						//Check time (counter) post launch
-	  DataRawArray = readSensors();											//Read raw data (IMU-BMP-MAG-PITOT)
-	  DataConvArray = convertSensors(DataRawArray);							//Convert the Data if needed (IMU-BMP-MAG-PITOT)
+	  epoch++;
+	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 256).
+	  timerPostLaunch = __HAL_TIM_GET_COUNTER(&htim2);					//Check time (counter) post launch
+
+	  readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
+	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
+
+	  DataRawArray.RTC_field[0] = sTime.Hours;								//Put RTC in the frame
+	  DataRawArray.RTC_field[1] = sTime.Minutes;
+	  DataRawArray.RTC_field[2] = sTime.Seconds;
+	  DataRawArray.RTC_field[3] = (uint8_t) sTime.SubSeconds;
+	  DataRawArray.Timer = timerPostLaunch;
+
+	  convertSensors((ArrayConv*)pointDataConvArray, (ArrayRaw*)pointDataRawArrayFreez);	//Convert the Data if needed (IMU-BMP-MAG-PITOT)
+	  //Process GPS raw data to float
+
+	  while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
+	  if(epoch == 5){
+		  epoch = 0;
+		  DataRawArray.FrameNumber = 2;
+		  //READ GPS DMA			----- ADD THIS -----
+	  }
+	  else{DataRawArray.FrameNumber = 1;}
+
+	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
 
 	  HAL_ADC_Start(&hadc1);												//Read battery voltage1, put in Vbat1
 	  HAL_ADC_Start(&hadc2);												//Read battery voltage2, put in Vbat2
 
-	  //WRITE SD CARD FUNCTION		----- ADD THIS -----
-	  //SEND TELEM FUNCTION			----- ADD THIS -----
-	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
+	  readPITOT((uint8_t*) pointDataRawArray->PITOT, &hi2c1);
 
-	  if(cycle == 5){
-		  cycle = 0;
-		  //READ GPS FUNCTION			----- ADD THIS -----
-		  //WRITE GPS to SD CARD		----- ADD THIS -----
-		  //FLUSH SD CARD				----- ADD THIS -----
-		  //SEND GPS to TELEM			----- ADD THIS -----
-	  }
+	  while(hspi3.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU3_FINISH_BEFORE_BMP3;}
+	  readBMPCal((int32_t*) pointDataRawArray->BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
+	  while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_GPS_FINISH_BEFORE_BMP2};
+	  readBMPCal((int32_t*) pointDataRawArray->BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
+	  readMAG((uint8_t*) pointDataRawArray->MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
+	  while((hdma_adc1.State != HAL_DMA_STATE_READY) && (hdma_adc2.State != HAL_DMA_STATE_READY)){err_msg |= WAIT_ADC_TO_FINISH};
+
+	  DataRawArray.Err_msg = (uint16_t) err_msg;
+	  err_msg &= RESET_ERR_MSG;
+	  DataRawArrayFreez = DataRawArray;
+	  memset(pointDataRawArray, 0, sizeof(DataRawArray));
+
+	  //WRITE SD CARD DMA			----- ADD THIS -----
+	  //SEND TELEM DMA				----- ADD THIS -----
   }
   /* USER CODE END 3 */
 }
@@ -202,15 +244,16 @@ void SystemClock_Config(void)
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
   /** Initializes the CPU, AHB and APB busses clocks 
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSE;
   RCC_OscInitStruct.LSEState = RCC_LSE_BYPASS;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 12;
-  RCC_OscInitStruct.PLL.PLLN = 96;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 100;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 10;
+  RCC_OscInitStruct.PLL.PLLQ = 8;
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -484,8 +527,8 @@ static void MX_SPI2_Init(void)
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
   hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
   hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -522,8 +565,8 @@ static void MX_SPI3_Init(void)
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
   hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -606,7 +649,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 10000;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 200;
+  htim3.Init.Period = 21000;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -630,6 +673,39 @@ static void MX_TIM3_Init(void)
 
 }
 
+/**
+  * @brief USART6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART6_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART6_Init 0 */
+
+  /* USER CODE END USART6_Init 0 */
+
+  /* USER CODE BEGIN USART6_Init 1 */
+
+  /* USER CODE END USART6_Init 1 */
+  huart6.Instance = USART6;
+  huart6.Init.BaudRate = 115200;
+  huart6.Init.WordLength = UART_WORDLENGTH_8B;
+  huart6.Init.StopBits = UART_STOPBITS_1;
+  huart6.Init.Parity = UART_PARITY_NONE;
+  huart6.Init.Mode = UART_MODE_TX_RX;
+  huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart6.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART6_Init 2 */
+
+  /* USER CODE END USART6_Init 2 */
+
+}
+
 /** 
   * Enable DMA controller clock
   */
@@ -638,14 +714,33 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+  /* DMA1_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  /* DMA1_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+  /* DMA2_Stream1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream1_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+  /* DMA2_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
 
 }
 
@@ -672,7 +767,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, LED1_Pin|LED2_Pin|UMBIL3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(TELEM_GPIO_Port, TELEM_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, TELEM_Pin|SPEED_TEST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, NSS_BMP2_Pin|NSS_MAG_Pin|NSS_IMU2_Pin|NSS_GPS_Pin 
@@ -688,16 +783,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC0 PC1 PC6 PC7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_6|GPIO_PIN_7;
+  /*Configure GPIO pins : PC0 PC1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA0 PA3 PA5 PA6 
-                           PA7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_5|GPIO_PIN_6 
-                          |GPIO_PIN_7;
+  /*Configure GPIO pins : PA0 PA3 PA5 PA6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_5|GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -708,12 +801,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(LIFTOFF_UMB_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : TELEM_Pin */
-  GPIO_InitStruct.Pin = TELEM_Pin;
+  /*Configure GPIO pins : TELEM_Pin SPEED_TEST_Pin */
+  GPIO_InitStruct.Pin = TELEM_Pin|SPEED_TEST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(TELEM_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : EN_TELEM_UMBIL1_Pin */
   GPIO_InitStruct.Pin = EN_TELEM_UMBIL1_Pin;
@@ -779,14 +872,13 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 // Initialization of the sensors, report error if any
-unsigned int sensorsInitialization(param *Bmp2, param *Bmp3)
-{
+unsigned int sensorsInitialization(param *Bmp2, param *Bmp3){
 	unsigned int err = 0;
-	if(initIMU(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2) != 1){err |= 1 << 0;}
-	if(initIMU(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3) != 1){err |= 1 << 1;}
-	if(initBMP(NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2) != 1){err |= 1 << 2;}
-	if(initBMP(NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3) != 1){err |= 1 << 3;}
-	if(initMAG(NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2) != 1){err |= 1 << 4;}
+	if(initIMU_slow(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2) != 1){err |= ERR_INIT_IMU2;}
+	if(initIMU_fast(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3) != 1){err |= ERR_INIT_IMU3;}
+	if(initBMP(		NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2) != 1){err |= ERR_INIT_BMP2;}
+	if(initBMP(		NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3) != 1){err |= ERR_INIT_BMP3;}
+	if(initMAG(		NSS_MAG_GPIO_Port , NSS_MAG_Pin , &hspi2) != 1){err |= ERR_INIT_MAG;}
 
 	readParamBmp(Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
 	readParamBmp(Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
@@ -795,33 +887,60 @@ unsigned int sensorsInitialization(param *Bmp2, param *Bmp3)
 	return err;
 }
 
-ArrayRaw readSensors(){
-	ArrayRaw newArrayRaw = {0};
-	ArrayRaw *pointeur = &newArrayRaw;  											/* pointeur is a pointer to newArrayRaw */
-	readIMU((int16_t*) pointeur->IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2);
-	readIMU((int16_t*) pointeur->IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);
-	readBMPCal((int32_t*) pointeur->BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
-	readBMPCal((int32_t*) pointeur->BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
-	readMAG((int16_t*) pointeur->MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
-	newArrayRaw.PITOT = readPITOT(&hi2c1);
-	return newArrayRaw;
+void readSensors(ArrayRaw *Array){
+	readIMU((uint8_t*) Array->IMU3, 140	, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
+	readIMU((uint8_t*) Array->IMU2, 56	, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
+	readBMPCal((int32_t*) Array->BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
+	readBMPCal((int32_t*) Array->BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
+	readMAG((uint8_t*) Array->MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
+	readPITOT((uint8_t*) Array->PITOT, &hi2c1);
 }
 
-ArrayConv convertSensors(ArrayRaw ArrayToConvert){
-	ArrayConv ConvertedArray = {{0.0}};
-	ArrayRaw *pointToConv = &ArrayToConvert;										/* pointToConv is a pointer to ArrayToConvert */
-	ArrayConv *pointConv = &ConvertedArray;											/* pointConv is a pointer to ConvertedArray */
-	uint32_t cycleIMU2 = (sizeof(ConvertedArray.IMU2)/7) >> 2;						/* number of data we want to convert, float so divide by 4*/
-	uint32_t cycleIMU3 = (sizeof(ConvertedArray.IMU3)/7) >> 2;						/* number of data we want to convert, float so divide by 4*/
+void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert){
+	uint32_t cycleIMU3 = 10;
+	uint32_t cycleIMU2 = 4;
 
-	convIMU((int16_t*) pointToConv->IMU2, (float*) pointConv->IMU2, cycleIMU2);
-	convIMU((int16_t*) pointToConv->IMU3, (float*) pointConv->IMU3, cycleIMU3);
-	convBMP((int32_t*) pointToConv->BMP2, (float*) pointConv->BMP2);
-	convBMP((int32_t*) pointToConv->BMP3, (float*) pointConv->BMP3);
-	convMAG((int16_t*) pointToConv->MAG, (float*) pointConv->MAG);
-	ConvertedArray.PITOT = convSpeedPITOT(ArrayToConvert.PITOT);
-	return ConvertedArray;
+	convIMU((uint8_t*) ArrayToConvert->IMU2, (float*) ArrayConverted->IMU2, cycleIMU2);
+	convIMU((uint8_t*) ArrayToConvert->IMU3, (float*) ArrayConverted->IMU3, cycleIMU3);
+	convBMP((int32_t*) ArrayToConvert->BMP2, (float*) ArrayConverted->BMP2);
+	convBMP((int32_t*) ArrayToConvert->BMP3, (float*) ArrayConverted->BMP3);
+	convMAG((uint8_t*) ArrayToConvert->MAG , (float*) ArrayConverted->MAG );
+	convSpeedPITOT((uint8_t*) &ArrayToConvert->PITOT, (float*) &ArrayConverted->PITOT);
 }
+
+// Put back the NSS pin high. Since we don't know which sensor was read we put them all high
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
+	if(hspi == &hspi2){
+		HAL_GPIO_WritePin(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(NSS_GPS_GPIO_Port , NSS_GPS_Pin , GPIO_PIN_SET);
+	}
+	else if(hspi == &hspi3){
+		HAL_GPIO_WritePin(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, GPIO_PIN_SET);
+	}
+}
+
+void ADC_DMAConvCplt(DMA_HandleTypeDef *hdma){
+	__NOP();		//for debugging
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+	__NOP();		//for debugging
+}
+
+void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
+	if		(hspi == &hspi2){err_msg |= ERR_SPI2_ERRORCALLBACK;}
+	else if	(hspi == &hspi3){err_msg |= ERR_SPI3_ERRORCALLBACK;}
+}
+
+void ADC_DMAError(DMA_HandleTypeDef *hdma){
+	if		(hdma == &hdma_adc1){err_msg |= ERR_ADC_ERRORCALLBACK;}
+	else if	(hdma == &hdma_adc2){err_msg |= ERR_ADC_ERRORCALLBACK;}
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart){
+	err_msg |= ERR_UART_ERRORCALLBACK;
+}
+
 /* USER CODE END 4 */
 
 /**

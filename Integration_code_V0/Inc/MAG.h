@@ -15,8 +15,8 @@
 void Error_Handler(void);
 
 uint32_t initMAG(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin,  SPI_HandleTypeDef *hspiN);
-void readMAG(int16_t *MAG_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
-void convMAG(int16_t *MAG_raw_data, float *MAGConv);
+void readMAG(uint8_t *MAG_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN);
+void convMAG(uint8_t *MAG_raw_data, float *MAGConv);
 
 
 /* Register Position ---------------------------------------------------------*/
@@ -29,9 +29,9 @@ void convMAG(int16_t *MAG_raw_data, float *MAGConv);
 
 /* Commands -------------------------------------------------------------------*/
 #define LIS_ID						0x3d //LIS_WHO_AM_I : LIS ID
-#define LIS_UHP						0x10 //LIS_CTRL_REG1 : Ultra high performance (axe X and Y), 155Hz
-#define LIS_SCALE4G					0x00 //LIS_CTRL_REG2 : FS +/- 4Gauss
-#define LIS_RESET					0x04 //LIS_CTRL_REG2 : Soft reset of the device
+#define LIS_UHP						0x7E //LIS_CTRL_REG1 : Ultra high performance (axe X and Y), 155Hz
+#define LIS_SCALE4G					0x00 //LIS_CTRL_REG2 : FS +/- 4Gauss (0.25-0.65 Gauss at earth's surface)
+#define LIS_RESET					0x0C //LIS_CTRL_REG2 : Reboot and Soft reset of the device
 #define LIS_ACTIVATE				0x00 //LIS_CTRL_REG3 : Activate continuous mode
 #define LIS_ZUHP					0x0E //LIS_CTRL_REG4 : axe Z UHP
 

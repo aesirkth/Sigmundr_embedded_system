@@ -1,2 +1,2 @@
-PITOT.c:11:10:readPITOT	24	static
-PITOT.c:22:7:convSpeedPITOT	8	static
+PITOT.c:11:6:readPITOT	24	static
+PITOT.c:18:6:convSpeedPITOT	48	static

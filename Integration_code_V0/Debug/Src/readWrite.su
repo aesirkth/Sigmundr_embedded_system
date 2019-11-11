@@ -1,3 +1,3 @@
+readWrite.c:11:10:write8	40	static
 readWrite.c:30:6:read8	32	static
-readWrite.c:11:10:write8	48	static
-readWrite.c:42:6:read16N	32	dynamic
+readWrite.c:42:6:readN	32	static

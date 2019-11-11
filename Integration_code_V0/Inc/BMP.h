@@ -46,6 +46,7 @@ void convBMP(int32_t *bmpCompensated, float *bmpConv);
 #define BMP280_MODE_NORMAL			0x03 //BMP280_CTRL_MEAS : normal mode
 #define BMP280_MODE_SLEEP			0x00 //BMP280_CTRL_MEAS : sleep mode
 #define BMP280_TSB_05				0x00 //BMP280_CONFIG : standby time = 0.5ms (with high resolution = 50Hz)
+#define BMP280_IRR_8				0x0C //BMP280_CONFIG : IRR filter 8
 #define BMP280_IRR_16				0x14 //BMP280_CONFIG : IRR filter 16
 #define BMP280_EN_SPI3				0x00 //BMP280_CONFIG : do not select 3 wire SPI
 

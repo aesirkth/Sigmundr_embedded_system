@@ -13,8 +13,8 @@
 
 void Error_Handler(void);
 
-uint16_t readPITOT(I2C_HandleTypeDef *hi2cN);
-float convSpeedPITOT(uint16_t PITOT_raw);
+void readPITOT(uint8_t *PITOT_raw, I2C_HandleTypeDef *hi2cN);
+void convSpeedPITOT(uint8_t *PITOT_raw, float *speed);
 
 #define PITOT_ADDRESS		0x28	//I2C address of the sensor
 

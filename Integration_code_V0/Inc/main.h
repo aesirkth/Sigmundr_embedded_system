@@ -47,19 +47,30 @@ extern uint32_t sample;
 extern uint32_t err_msg;
 extern TIM_HandleTypeDef htim2;
 
+
 struct arrayRawFrame{
-	  int16_t IMU2[70];										//acc_temp_gyro * 10 	(500Hz)
-	  int16_t IMU3[28];										//acc_temp_gyro * 4		(200Hz)
-	  int32_t BMP2[2];										//temp-pressure  		(50Hz)
-	  int32_t BMP3[2];										//temp-pressure  		(50Hz)
-	  int16_t MAG[3];										//X-Y-Z			  		(50Hz)
-	  uint16_t PITOT;										//pressure  			(50Hz)
+	  uint8_t 	IMU3[WATERMARK_IMU3];						//MSB first		(500Hz)
+	  uint8_t 	FrameNumber;								//MSB first
+	  uint8_t	Status;										//MSB first
+	  uint16_t 	Err_msg;									//LSB first
+	  uint8_t 	RTC_field[4];								//MSB first
+	  uint32_t 	Timer;										//LSB first
+	  uint16_t  Battery1;									//LSB first
+	  uint16_t 	Battery2;									//LSB first
+	  uint8_t 	IMU2[WATERMARK_IMU2];						//MSB first		(200Hz)
+	  int32_t 	BMP2[2];									//LSB first
+	  int32_t 	BMP3[2];									//LSB first
+	  uint8_t 	MAG[6];										//MSB first
+	  uint8_t 	PITOT[2];									//LSB first
+	  uint8_t	Endline1[2];								//MSB first
+	  uint8_t	GPS[40]; //GPS_struc defined by Sonal
+	  uint8_t	Endline2[2];								//MSB first
 };
 typedef struct arrayRawFrame ArrayRaw;
 
 struct arrayConvFrame{
-	  float IMU2[70];										//acc_temp_gyro * 10 	(500Hz)
-	  float IMU3[28];										//acc_temp_gyro * 4		(200Hz)
+	  float IMU3[WATERMARK_IMU3/2];							//acc_temp_gyro * 10 	(500Hz)
+	  float IMU2[WATERMARK_IMU2/2];							//acc_temp_gyro * 4		(200Hz)
 	  float BMP2[2];										//temp-pressure  		(50Hz)
 	  float BMP3[2];										//temp-pressure  		(50Hz)
 	  float MAG[3];											//X-Y-Z			  		(50Hz)
@@ -83,8 +94,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 unsigned int sensorsInitialization(param *Bmp2, param *Bmp3);
-ArrayRaw readSensors(void);
-ArrayConv convertSensors(ArrayRaw ArrayToConvert);
+void readSensors(ArrayRaw *Array);
+void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -101,6 +112,8 @@ ArrayConv convertSensors(ArrayRaw ArrayToConvert);
 #define TELEM_GPIO_Port GPIOA
 #define EN_TELEM_UMBIL1_Pin GPIO_PIN_4
 #define EN_TELEM_UMBIL1_GPIO_Port GPIOA
+#define SPEED_TEST_Pin GPIO_PIN_7
+#define SPEED_TEST_GPIO_Port GPIOA
 #define CALIB_UMBIL2_Pin GPIO_PIN_4
 #define CALIB_UMBIL2_GPIO_Port GPIOC
 #define UMBIL3_Pin GPIO_PIN_5
@@ -127,7 +140,24 @@ ArrayConv convertSensors(ArrayRaw ArrayToConvert);
 #define EJEC_STM_Pin GPIO_PIN_8
 #define EJEC_STM_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
+#define ERR_INIT_IMU2					1<<0;
+#define ERR_INIT_IMU3					1<<1;
+#define ERR_INIT_BMP2					1<<2;
+#define ERR_INIT_BMP3					1<<3;
+#define ERR_INIT_MAG					1<<4;
+#define ERR_INIT_ADC					1<<5;
+#define ERR_INIT_SD_CARD				1<<6;
+#define ERR_LOOP_TIME					1<<7;
+#define ERR_SPI2_ERRORCALLBACK			1<<8;
+#define ERR_SPI3_ERRORCALLBACK			1<<9;
+#define ERR_ADC_ERRORCALLBACK			1<<10;
+#define ERR_UART_ERRORCALLBACK			1<<11;
+#define WAIT_IMU2_FINISH_BEFORE_GPS		1<<12;
+#define WAIT_IMU3_FINISH_BEFORE_BMP3	1<<13;
+#define WAIT_GPS_FINISH_BEFORE_BMP2		1<<14;
+#define WAIT_ADC_TO_FINISH				1<<15;
 
+#define RESET_ERR_MSG					0x007F;	//reset all errors except for the initialization errors
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

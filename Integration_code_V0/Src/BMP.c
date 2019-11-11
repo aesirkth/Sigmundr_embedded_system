@@ -16,11 +16,10 @@ void readBMP(int32_t *data, uint8_t Number, GPIO_TypeDef *NSS_GPIO_Port, uint16_
 	uint8_t dataRead[Size];
 	dataRead[0] = BMP280_DATA_REG | 0x80; 		//for a read command MSB should be 1
 	HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(hspiN, &dataRead, Size, 10);
+	HAL_SPI_Receive(hspiN, (uint8_t*)&dataRead, Size, 2);
 	HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_SET);
 
-	unsigned int i = 0;
-	for(i=0;i<Number;i++){
+	for(uint32_t i=0;i<Number;i++){
 		*data++ = dataRead[1+3*i]<<12 | dataRead[2+3*i]<<4 | dataRead[3+3*i]; //signed int, 20 bit format !
 	}
 }
@@ -31,10 +30,10 @@ uint16_t read16BMP(uint8_t registerAdress, GPIO_TypeDef *NSS_GPIO_Port, uint16_t
 {
 	uint16_t data = 0;
 	uint16_t Size = 3;
-	uint8_t dataRead[3] = {0,0,0};
+	uint8_t dataRead[3] = {0};
 	dataRead[0] = registerAdress | 0x80; 	//for a read command MSB should be 1
 	HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_RESET);
-	HAL_SPI_Receive(hspiN, &dataRead, Size, 10);
+	HAL_SPI_Receive(hspiN, (uint8_t*)&dataRead, Size, 10);
 	HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_SET);
 
 	data = dataRead[2]<<8 | dataRead[1]; 	//WARNING, unusual : MSB in the second position
@@ -73,7 +72,7 @@ uint32_t initBMP(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDe
 	write8(BMP280_RESET_REG, BMP280_RESET_CMD, NSS_GPIO_Port, NSS_Pin, hspiN);
 	HAL_Delay(10);
 	if(write8(BMP280_CTRL_MEAS, BMP280_OVERSAMPL_TEMP | BMP280_OVERSAMPL_PRESS | BMP280_MODE_NORMAL, NSS_GPIO_Port, NSS_Pin, hspiN) != 1){verif = 0;}
-	if(write8(BMP280_CONFIG, BMP280_TSB_05 | BMP280_IRR_16 | BMP280_EN_SPI3, NSS_GPIO_Port, NSS_Pin, hspiN) != 1){verif = 0;}
+	if(write8(BMP280_CONFIG, BMP280_TSB_05 | BMP280_IRR_8 | BMP280_EN_SPI3, NSS_GPIO_Port, NSS_Pin, hspiN) != 1){verif = 0;}
 
 	return verif;
 }
@@ -115,12 +114,9 @@ void bmpCompensate(int32_t bmpRaw[2], int32_t *bmpCompensated, param Bmp)
 //This function read the data from the BMP and compensate it, result is in bmpCompensated (pressure and temperature)
 void readBMPCal(int32_t *bmpCompensated, param Bmp, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
-	int32_t data[2] = {0};
 	int32_t bmpRaw[2] = {0};
-	readBMP(&bmpRaw, 2, NSS_GPIO_Port, NSS_Pin, hspiN); //Read BMP data registers
-	bmpCompensate(bmpRaw, &data, Bmp);
-	*bmpCompensated++ = data[0];
-	*bmpCompensated = data[1];
+	readBMP((int32_t*)&bmpRaw, 2, NSS_GPIO_Port, NSS_Pin, hspiN); //Read BMP data registers
+	bmpCompensate(bmpRaw, bmpCompensated, Bmp);
 }
 
 //Performances, 72Mhz uC, 4.5Mhz SPI : 12us
