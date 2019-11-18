@@ -127,7 +127,9 @@ int main(void)
 	ArrayRaw *pointDataRawArrayFreez = &DataRawArrayFreez;
 	ArrayConv DataConvArray = {{0.0}};
 	ArrayRaw *pointDataConvArray = &DataConvArray;
-	uint32_t epoch1 = 0;
+	uint32_t epoch = 0;
+	gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
+	gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
   /* USER CODE END 1 */
   
 
@@ -217,6 +219,12 @@ int main(void)
 		  DataRawArray.FrameNumber = 2;
 		  //while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
 		  //READ GPS DMA			----- ADD THIS -----
+		  gpsSelect();		//resets the CS pin
+		  GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
+		  gpsDeselect();	//sets the CS pin
+
+		  //to process the read packets, call this function below
+		  pointParsedGpsStruct = GPS_ProcessRawPacket();
 	  }
 	  else{DataRawArray.FrameNumber = 1;}
 
