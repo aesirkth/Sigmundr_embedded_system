@@ -39,7 +39,7 @@ void readMAG(uint8_t *MAG_raw_data, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pi
 //Convert data in Gauss (float)
 void convMAG(uint8_t *MAG_raw_data, float *MAGConv)
 {
-	*MAGConv++ = (*MAG_raw_data++ << 8 + *MAG_raw_data++) / 6842.0; 		//in Gauss
-	*MAGConv++ = (*MAG_raw_data++ << 8 + *MAG_raw_data++) / 6842.0;
-	*MAGConv = (*MAG_raw_data++ << 8 + *MAG_raw_data) / 6842.0;
+	MAGConv[0] = (int16_t)(MAG_raw_data[0] << 8 | MAG_raw_data[1]) / 6842.0; 		//in Gauss
+	MAGConv[1] = (int16_t)(MAG_raw_data[2] << 8 | MAG_raw_data[3]) / 6842.0;
+	MAGConv[2] = (int16_t)(MAG_raw_data[4] << 8 | MAG_raw_data[5]) / 6842.0;
 }

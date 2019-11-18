@@ -25,11 +25,11 @@ void convMAG(uint8_t *MAG_raw_data, float *MAGConv);
 #define LIS_CTRL_REG2				0x21
 #define LIS_CTRL_REG3				0x22
 #define LIS_CTRL_REG4				0x23
-#define LIS_DATA_REG				0xE8 //0x28 (reading + incrementing address)
+#define LIS_DATA_REG				0x68 //0x28 | 0x40 (incrementing address (second bit = 1)
 
 /* Commands -------------------------------------------------------------------*/
-#define LIS_ID						0x3d //LIS_WHO_AM_I : LIS ID
-#define LIS_UHP						0x7E //LIS_CTRL_REG1 : Ultra high performance (axe X and Y), 155Hz
+#define LIS_ID						0x3D //LIS_WHO_AM_I : LIS ID
+#define LIS_UHP						0x7C //LIS_CTRL_REG1 : Ultra high performance (axe X and Y), 80Hz
 #define LIS_SCALE4G					0x00 //LIS_CTRL_REG2 : FS +/- 4Gauss (0.25-0.65 Gauss at earth's surface)
 #define LIS_RESET					0x0C //LIS_CTRL_REG2 : Reboot and Soft reset of the device
 #define LIS_ACTIVATE				0x00 //LIS_CTRL_REG3 : Activate continuous mode

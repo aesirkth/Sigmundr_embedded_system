@@ -63,7 +63,7 @@ void convIMU(uint8_t *IMU_raw_data, float *IMUConv, uint32_t cycle);
 #define ICM_CMD_LPFACC_45			0x03 //ICM_ACCEL_CONFIG2 : LPG acc 45Hz (218,99,45Hz)
 #define ICM_CMD_SCALE500DPS_GYRO	0x08 //ICM_GYRO_CONFIG : 500dps full scale gyro (250,500,1000,2000dps)
 #define ICM_CMD_SCALE1000DPS_GYRO	0x10 //ICM_GYRO_CONFIG : 1000dps full scale gyro (250,500,1000,2000dps)
-#define ICM_CMD_ACC_GYR_IN_FIFO		0x14 //ICM_FIFO_ENABLE : Put the Acc values, temp and Gyro in the Fifo
+#define ICM_CMD_ACC_GYR_IN_FIFO		0x18 //ICM_FIFO_ENABLE : Put the Acc values, temp and Gyro in the Fifo
 #define ICM_CMD_ACC_IN_FIFO			0x08 //ICM_FIFO_ENABLE : Put the Acc values and temp in the Fifo
 #define ICM_CMD_SIG_COND_RST		0x41 //ICM_USER_CONTROL : reset all digital signal path including sensor register
 #define ICM_CMD_RESET_FIFO			0x44 //ICM_USER_CONTROL : reset the FIFO module

@@ -1,5 +1,5 @@
-IMU.c:13:10:initIMU_fast	40	static
-IMU.c:44:10:initIMU_slow	40	static
-IMU.c:71:6:clearFIFO	72	dynamic
-IMU.c:88:10:readIMU	48	static
-IMU.c:107:6:convIMU	40	static
+IMU.c:14:10:initIMU_fast	40	static
+IMU.c:45:10:initIMU_slow	40	static
+IMU.c:72:6:clearFIFO	96	dynamic
+IMU.c:91:10:readIMU	40	static
+IMU.c:113:6:convIMU	40	static

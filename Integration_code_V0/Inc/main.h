@@ -47,9 +47,14 @@ extern uint32_t sample;
 extern uint32_t err_msg;
 extern TIM_HandleTypeDef htim2;
 
+struct teststruc{
+	uint32_t buffer[10];
+};
+typedef struct teststruc teststruct;
 
 struct arrayRawFrame{
 	  uint8_t 	IMU3[WATERMARK_IMU3];						//MSB first		(500Hz)
+	  //uint8_t 	IMU3[1008];
 	  uint8_t 	FrameNumber;								//MSB first
 	  uint8_t	Status;										//MSB first
 	  uint16_t 	Err_msg;									//LSB first
@@ -58,6 +63,7 @@ struct arrayRawFrame{
 	  uint16_t  Battery1;									//LSB first
 	  uint16_t 	Battery2;									//LSB first
 	  uint8_t 	IMU2[WATERMARK_IMU2];						//MSB first		(200Hz)
+	  //uint8_t IMU2[1008];
 	  int32_t 	BMP2[2];									//LSB first
 	  int32_t 	BMP3[2];									//LSB first
 	  uint8_t 	MAG[6];										//MSB first
@@ -145,19 +151,37 @@ void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert);
 #define ERR_INIT_BMP2					1<<2;
 #define ERR_INIT_BMP3					1<<3;
 #define ERR_INIT_MAG					1<<4;
-#define ERR_INIT_ADC					1<<5;
-#define ERR_INIT_SD_CARD				1<<6;
-#define ERR_LOOP_TIME					1<<7;
-#define ERR_SPI2_ERRORCALLBACK			1<<8;
-#define ERR_SPI3_ERRORCALLBACK			1<<9;
-#define ERR_ADC_ERRORCALLBACK			1<<10;
-#define ERR_UART_ERRORCALLBACK			1<<11;
-#define WAIT_IMU2_FINISH_BEFORE_GPS		1<<12;
-#define WAIT_IMU3_FINISH_BEFORE_BMP3	1<<13;
-#define WAIT_GPS_FINISH_BEFORE_BMP2		1<<14;
-#define WAIT_ADC_TO_FINISH				1<<15;
+#define ERR_INIT_ADC1					1<<5;
+#define ERR_INIT_ADC2					1<<6;
+#define ERR_INIT_SD_CARD				1<<7;
 
-#define RESET_ERR_MSG					0x007F;	//reset all errors except for the initialization errors
+#define ERR_LOOP_TIME					1<<8;
+#define ERR_SD_WRITE					1<<9;
+#define	ERR_SD_FLUSH					1<<10;
+#define ERR_SPI2_ERRORCALLBACK			1<<11;
+#define ERR_SPI3_ERRORCALLBACK			1<<12;
+#define ERR_UART_ERRORCALLBACK			1<<13;
+#define ERR_ADC1_ERRORCALLBACK			1<<14;
+#define ERR_ADC2_ERRORCALLBACK			1<<15;
+
+#define WAIT_IMU2_FINISH				1<<16;
+#define WAIT_IMU3_FINISH				1<<17;
+#define WAIT_GPS_FINISH					1<<18;
+#define WAIT_ADC1_TO_FINISH				1<<19;
+#define WAIT_ADC2_TO_FINISH				1<<20;
+
+#define CPLT_SPI2						1<<21;
+#define CPLT_SPI3						1<<22;
+#define CPLT_UART						1<<23;
+//#define CPLT_SD_WRITE
+//#define CPLT_SD_FLUSH
+#define CPLT_ADC1						1<<24;
+#define CPLT_ADC2						1<<25;
+
+#define RESET_ERR_MSG					0x00FF;	//reset all errors except for the initialization errors
+
+#define SIZEWITHGPS						(0x54 + WATERMARK_IMU2 + WATERMARK_IMU3)
+#define SIZEWITHOUTGPS					(0x2A + WATERMARK_IMU2 + WATERMARK_IMU3)
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

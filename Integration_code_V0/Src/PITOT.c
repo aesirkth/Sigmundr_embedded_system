@@ -18,7 +18,7 @@ void readPITOT(uint8_t *PITOT_raw, I2C_HandleTypeDef *hi2cN)
 void convSpeedPITOT(uint8_t *PITOT_raw, float *speed)
 {
 	uint16_t output;
-	output = *PITOT_raw++ << 8 | *PITOT_raw;
+	output = PITOT_raw[0] << 8 | PITOT_raw[1];
 
 	//Convert first the raw data to pressure
 	uint16_t output_min = 1638, output_max = 14745; //10% to 90% calibration with 2^14 counts

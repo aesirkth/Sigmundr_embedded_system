@@ -45,5 +45,5 @@ void readN(uint8_t registerAdress, uint8_t *data, uint16_t number, GPIO_TypeDef 
 	HAL_GPIO_WritePin(GPIO_Port, Pin, GPIO_PIN_RESET);
 	HAL_SPI_TransmitReceive(hspiN, (uint8_t*) data, (uint8_t*) data, 1, 1);
 	HAL_SPI_TransmitReceive(hspiN, (uint8_t*) data, (uint8_t*) data, number, 2);
-	HAL_GPIO_WritePin(GPIO_Port, Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIO_Port, Pin, GPIO_PIN_SET);
 }

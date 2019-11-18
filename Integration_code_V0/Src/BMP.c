@@ -124,6 +124,6 @@ void readBMPCal(int32_t *bmpCompensated, param Bmp, GPIO_TypeDef *NSS_GPIO_Port,
 // T is given with a resolution of 0.01DegC, ie "5123" = 51.23°C, divide p value to get the pressure in Pa. "24674867" = 24674867/256 = 96386.2 Pa
 void convBMP(int32_t *bmpCompensated, float *bmpConv)
 {
-	*bmpConv++ = *bmpCompensated++ / 100.0;
-	*bmpConv = *bmpCompensated / 256.0;
+	bmpConv[0] = bmpCompensated[0] / 100.0;
+	bmpConv[1] = bmpCompensated[1] / 256.0;
 }

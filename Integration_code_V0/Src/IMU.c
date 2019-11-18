@@ -5,6 +5,7 @@
  *  This files contains the interface for the IMU : icm20602
  */
 
+#include <unistd.h>
 #include "IMU.h"
 
 // Fct to initialize the ICM20602 registers, see IMU.h for the details of the registers
@@ -70,16 +71,18 @@ uint32_t initIMU_slow(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleT
 
 void clearFIFO(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
-	uint16_t sizeFifo=0;
+	uint16_t sizeFifo=0, readNumber=0;
 	uint8_t data[3]={0};
 	data[0] = ICM_REG_FIFO_COUNT_H | 0x80;
 	HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_RESET);
 	HAL_SPI_TransmitReceive(hspiN, (uint8_t*) &data, (uint8_t*) &data, 3, 1);
 	sizeFifo = data[1]<<8 | data[2];
 
-	uint8_t dummy[sizeFifo+1];
-	dummy[0] = ICM_REG_FIFO_REG | 0x80;
-	HAL_SPI_TransmitReceive_DMA(hspiN, (uint8_t*) &dummy, (uint8_t*) &dummy, sizeFifo+1);
+	readNumber = (sizeFifo/14)*14;
+	uint8_t dummyTx[readNumber+1];
+	uint8_t dummyRx[readNumber+1];
+	dummyTx[0] = ICM_REG_FIFO_REG | 0x80;
+	HAL_SPI_TransmitReceive_DMA(hspiN, (uint8_t*) &dummyTx, (uint8_t*) &dummyRx, readNumber+1);
 }
 
 // Performances, 72Mhz uC, 4.5Mhz SPI :55us
@@ -87,17 +90,20 @@ void clearFIFO(GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef 
 // carefull sensor big endian, STM32 little endian
 uint32_t readIMU(uint8_t *IMU_raw_data, uint16_t number, GPIO_TypeDef *NSS_GPIO_Port, uint16_t NSS_Pin, SPI_HandleTypeDef *hspiN)
 {
-	uint16_t sizeFifo=0;
+	uint16_t sizeFifo=0, readNumber=0;
 	uint8_t data[3]={0};
 	uint32_t iserror = 0;
-	*IMU_raw_data = ICM_REG_FIFO_REG | 0x80;
 	data[0] = ICM_REG_FIFO_COUNT_H | 0x80;
+
 	HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_RESET);
-	HAL_SPI_TransmitReceive(hspiN, (uint8_t*) &data, (uint8_t*) &data, 3, 1);
+	HAL_SPI_Receive(hspiN, (uint8_t*) &data, 3, 2);
 	sizeFifo = data[1]<<8 | data[2];
-	if(sizeFifo == number){iserror = 1;}
-	HAL_SPI_TransmitReceive(hspiN, (uint8_t*) IMU_raw_data, (uint8_t*) IMU_raw_data, 1, 1);
-	HAL_SPI_TransmitReceive_DMA(hspiN, (uint8_t*) IMU_raw_data, (uint8_t*) IMU_raw_data, number);
+	readNumber = (sizeFifo/14)*14;				//for reading a multiple of 14bytes (2bytes * 7 measurements)
+	if(readNumber != number){iserror = 1;}
+	IMU_raw_data[0] = ICM_REG_FIFO_REG | 0x80;
+	//HAL_SPI_TransmitReceive(hspiN, (uint8_t*) IMU_raw_data, (uint8_t*) IMU_raw_data, readNumber,10);
+	//HAL_GPIO_WritePin(NSS_GPIO_Port, NSS_Pin, GPIO_PIN_SET);
+	HAL_SPI_TransmitReceive_DMA(hspiN, (uint8_t*) IMU_raw_data, (uint8_t*) IMU_raw_data, readNumber);
 	return iserror;
 }
 
@@ -107,13 +113,13 @@ uint32_t readIMU(uint8_t *IMU_raw_data, uint16_t number, GPIO_TypeDef *NSS_GPIO_
 void convIMU(uint8_t *IMU_raw_data, float *IMUConv, uint32_t cycle)
 {
 	for(uint32_t i=0; i<cycle; i++){
-		*IMUConv++ = (*IMU_raw_data++ << 8 + *IMU_raw_data++) / 2048.0; 								//in g
-		*IMUConv++ = (*IMU_raw_data++ << 8 + *IMU_raw_data++) / 2048.0;
-		*IMUConv++ = (*IMU_raw_data++ << 8 + *IMU_raw_data++) / 2048.0;
-		*IMUConv++ = ((*IMU_raw_data++ << 8 + *IMU_raw_data++) / 326.8) + 25.0;							//in °C
-		*IMUConv++ = (*IMU_raw_data++ << 8 + *IMU_raw_data++) / 32.8; 									//in dps
-		*IMUConv++ = (*IMU_raw_data++ << 8 + *IMU_raw_data++) / 32.8;
-		*IMUConv++ = (*IMU_raw_data++ << 8 + *IMU_raw_data++) / 32.8;
+		IMUConv[0+i*7] = (int16_t)(IMU_raw_data[0+i*14] << 8 | IMU_raw_data[1+i*14]) / 2048.0; 								//in g
+		IMUConv[1+i*7] = (int16_t)(IMU_raw_data[2+i*14] << 8 | IMU_raw_data[3+i*14]) / 2048.0;
+		IMUConv[2+i*7] = (int16_t)(IMU_raw_data[4+i*14] << 8 | IMU_raw_data[5+i*14]) / 2048.0;
+		IMUConv[3+i*7] = ((int16_t)(IMU_raw_data[6+i*14] << 8 | IMU_raw_data[7+i*14]) / 326.8) + 25.0;						//in °C
+		IMUConv[4+i*7] = (int16_t)(IMU_raw_data[8+i*14] << 8 | IMU_raw_data[9+i*14]) / 32.8; 								//in dps
+		IMUConv[5+i*7] = (int16_t)(IMU_raw_data[10+i*14] << 8 | IMU_raw_data[11+i*14]) / 32.8;
+		IMUConv[6+i*7] = (int16_t)(IMU_raw_data[12+i*14] << 8 | IMU_raw_data[13+i*14]) / 32.8;
 	}
 }
 

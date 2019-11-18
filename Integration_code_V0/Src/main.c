@@ -16,6 +16,10 @@
   *
   ******************************************************************************
   */
+
+//Should put : (version of CubeMx doesn't allow it)
+//hadc1.Init.DMAContinuousRequests = ENABLE;
+//hadc2.Init.DMAContinuousRequests = ENABLE;
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
@@ -53,6 +57,8 @@ I2C_HandleTypeDef hi2c1;
 RTC_HandleTypeDef hrtc;
 
 SD_HandleTypeDef hsd;
+DMA_HandleTypeDef hdma_sdio_rx;
+DMA_HandleTypeDef hdma_sdio_tx;
 
 SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi3;
@@ -92,7 +98,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART6_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void SD_cardMountInit(FATFS* fs, FIL* f);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,15 +112,22 @@ static void MX_USART6_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	FATFS fs;
+	FIL file;
+	UINT bw;
+
+	uint16_t ADC_battery1=0, ADC_battery2=0;
 	uint32_t readPinPlug = 0;
 	uint32_t timerPostLaunch = 0;
+	teststruct test = {0};
+	teststruct *pointtest = &test;
 	ArrayRaw DataRawArray = {0};
 	ArrayRaw *pointDataRawArray = &DataRawArray;
 	ArrayRaw DataRawArrayFreez = {0};
 	ArrayRaw *pointDataRawArrayFreez = &DataRawArrayFreez;
 	ArrayConv DataConvArray = {{0.0}};
 	ArrayRaw *pointDataConvArray = &DataConvArray;
-	uint32_t epoch = 0;
+	uint32_t epoch1 = 0;
   /* USER CODE END 1 */
   
 
@@ -144,17 +157,19 @@ int main(void)
   MX_ADC2_Init();
   MX_RTC_Init();
   MX_SDIO_SD_Init();
-  MX_FATFS_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_USART6_UART_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
    //HAL_TIM_Base_Start_IT(&htim3);																//timer for the sampling
    err_msg |= sensorsInitialization(&Bmp2, &Bmp3);												//Initialization of sensors (IMU,BMP,MAG)
-   if(HAL_ADC_Start_DMA(&hadc1, (uint16_t*) pointDataRawArray->Battery1, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC1 (reading voltage Vbat1)
-   if(HAL_ADC_Start_DMA(&hadc2, (uint16_t*) pointDataRawArray->Battery2, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC2 (reading voltage Vbat2)
-   //err_msg |= SD card initialization		----- ADD THIS -----
+   //if(HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &ADC_battery1, 1) != HAL_OK){err_msg |= ERR_INIT_ADC1;}		//Initialization ADC1 (reading voltage Vbat1)
+   //if(HAL_ADC_Start_DMA(&hadc2, (uint32_t*) &ADC_battery2, 1) != HAL_OK){err_msg |= ERR_INIT_ADC2;}		//Initialization ADC2 (reading voltage Vbat2)
+   SD_cardMountInit(&fs, &file); 																//SD card initialization
 
+   if(err_msg==0){HAL_GPIO_WritePin(LED2_GPIO_Port,LED2_Pin, GPIO_PIN_SET);}
+   epoch1 = 0;
    /*
    while(readPinPlug == 0){																//wait till liftoff wire is connected
 	   readPinPlug = 1;
@@ -164,8 +179,9 @@ int main(void)
 	   }
    }
    */
-   clearFIFO(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);		//clear the FIFO of the IMU
+   //clearFIFO(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);		//clear the FIFO of the IMU
    clearFIFO(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2); 	//clear the FIFO of the IMU
+   HAL_Delay(10);										//Wait that the fifo are cleared before arming and starting sampling
    arm = 1;
   /* USER CODE END 2 */
 
@@ -176,15 +192,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  while(sample == 0); 												//Wait till new sample time (change by interrupt)
-	  htim3.Instance->CNT = 0;											//put back the CNT from timer3 (for sampling) to zero
+	  //while(sample == 0); 												//Wait till new sample time (change by interrupt)
+	  HAL_Delay(100);
+	  //htim3.Instance->CNT = 0;										//put back the CNT from timer3 (for sampling) to zero
+	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_SET);
 	  sample = 0;
-	  epoch++;
-	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 256).
+	  epoch1++;
+	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 255).
 	  timerPostLaunch = __HAL_TIM_GET_COUNTER(&htim2);					//Check time (counter) post launch
 
-	  readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
-	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
+	  //readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);
+	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2);
 
 	  DataRawArray.RTC_field[0] = sTime.Hours;								//Put RTC in the frame
 	  DataRawArray.RTC_field[1] = sTime.Minutes;
@@ -195,34 +213,64 @@ int main(void)
 	  convertSensors((ArrayConv*)pointDataConvArray, (ArrayRaw*)pointDataRawArrayFreez);	//Convert the Data if needed (IMU-BMP-MAG-PITOT)
 	  //Process GPS raw data to float
 
-	  while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
-	  if(epoch == 5){
-		  epoch = 0;
+	  if(epoch1 == 5){
 		  DataRawArray.FrameNumber = 2;
+		  //while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
 		  //READ GPS DMA			----- ADD THIS -----
 	  }
 	  else{DataRawArray.FrameNumber = 1;}
 
 	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
 
-	  HAL_ADC_Start(&hadc1);												//Read battery voltage1, put in Vbat1
-	  HAL_ADC_Start(&hadc2);												//Read battery voltage2, put in Vbat2
+	  //HAL_ADC_Start(&hadc1);										//Read battery voltage1
+	  //HAL_ADC_Start(&hadc2);										//Read battery voltage2
 
-	  readPITOT((uint8_t*) pointDataRawArray->PITOT, &hi2c1);
+	  //readPITOT((uint8_t*) pointDataRawArray->PITOT, &hi2c1);
 
-	  while(hspi3.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU3_FINISH_BEFORE_BMP3;}
+	  while(hspi3.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU3_FINISH;}
 	  readBMPCal((int32_t*) pointDataRawArray->BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
-	  while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_GPS_FINISH_BEFORE_BMP2};
+	  while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_GPS_FINISH};
 	  readBMPCal((int32_t*) pointDataRawArray->BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
 	  readMAG((uint8_t*) pointDataRawArray->MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
-	  while((hdma_adc1.State != HAL_DMA_STATE_READY) && (hdma_adc2.State != HAL_DMA_STATE_READY)){err_msg |= WAIT_ADC_TO_FINISH};
+	  //while(hdma_adc1.State != HAL_DMA_STATE_READY){err_msg |= WAIT_ADC1_TO_FINISH};
+	  //while(hdma_adc2.State != HAL_DMA_STATE_READY){err_msg |= WAIT_ADC2_TO_FINISH};
 
+	  HAL_Delay(10);
+	  DataRawArray.Battery1 = ADC_battery1;
+	  DataRawArray.Battery2 = ADC_battery2;
 	  DataRawArray.Err_msg = (uint16_t) err_msg;
 	  err_msg &= RESET_ERR_MSG;
+	  DataRawArray.Endline2[0] = '\r';
+	  DataRawArray.Endline2[1] = '\n';
+	  DataRawArray.IMU3[0] = 'b';
 	  DataRawArrayFreez = DataRawArray;
 	  memset(pointDataRawArray, 0, sizeof(DataRawArray));
+	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_RESET);
 
 	  //WRITE SD CARD DMA			----- ADD THIS -----
+	  FRESULT r;
+	  char buffer1[10]={'a','b','c','d','e','f','g','h','\r','\n'};
+	  for(uint32_t i=0;i<10;i++){
+		  test.buffer[i] = (uint32_t)buffer1[i];
+	  }
+	  //test.buffer = {'a','b','c','d','e','f','g','h','\r','\n'};
+	  if(epoch1 == 5){
+		  epoch1 = 0;
+		  r = f_sync(&file);
+		  HAL_Delay(10);
+		  //r = f_write(&file, (uint8_t*) pointtest->buffer, 40, &bw);
+		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->IMU3, sizeof(DataRawArrayFreez), &bw);
+		  //r = f_write(&file, (uint8_t*) &buffer, 10, &bw);
+	  }
+	  else{
+		  //r = f_write(&file, (uint8_t*) pointtest->buffer, 40, &bw);
+		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->IMU3, sizeof(DataRawArrayFreez), &bw);
+		  HAL_Delay(10);
+		  r = f_sync(&file);
+		  //r = f_write(&file, (uint8_t*) &buffer, 10, &bw);
+	  }
+	  __NOP();
+
 	  //SEND TELEM DMA				----- ADD THIS -----
   }
   /* USER CODE END 3 */
@@ -328,7 +376,7 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
-
+  //hadc1.Init.DMAContinuousRequests = ENABLE;
   /* USER CODE END ADC1_Init 2 */
 
 }
@@ -500,7 +548,7 @@ static void MX_SDIO_SD_Init(void)
   hsd.Init.ClockPowerSave = SDIO_CLOCK_POWER_SAVE_DISABLE;
   hsd.Init.BusWide = SDIO_BUS_WIDE_1B;
   hsd.Init.HardwareFlowControl = SDIO_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd.Init.ClockDiv = 0;
+  hsd.Init.ClockDiv = 3;
   /* USER CODE BEGIN SDIO_Init 2 */
 
   /* USER CODE END SDIO_Init 2 */
@@ -527,10 +575,10 @@ static void MX_SPI2_Init(void)
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
   hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
-  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -565,10 +613,10 @@ static void MX_SPI3_Init(void)
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
-  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -738,9 +786,15 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+  /* DMA2_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
   /* DMA2_Stream6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+  /* DMA2_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
 
 }
 
@@ -871,11 +925,22 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void SD_cardMountInit(FATFS* fs, FIL* f){
+	FRESULT r;
+	if((r=f_mount(fs,SDPath,1)) == FR_OK){
+		uint8_t path[] = "data.txt\0";
+		r = f_open(f, (char*)path, FA_WRITE |FA_OPEN_APPEND);
+	}
+	if(r != FR_OK){err_msg |= ERR_INIT_SD_CARD};
+}
+
+
 // Initialization of the sensors, report error if any
 unsigned int sensorsInitialization(param *Bmp2, param *Bmp3){
 	unsigned int err = 0;
+	//if(initIMU_fast(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3) != 1){err |= ERR_INIT_IMU3;}
 	if(initIMU_slow(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2) != 1){err |= ERR_INIT_IMU2;}
-	if(initIMU_fast(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3) != 1){err |= ERR_INIT_IMU3;}
 	if(initBMP(		NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2) != 1){err |= ERR_INIT_BMP2;}
 	if(initBMP(		NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3) != 1){err |= ERR_INIT_BMP3;}
 	if(initMAG(		NSS_MAG_GPIO_Port , NSS_MAG_Pin , &hspi2) != 1){err |= ERR_INIT_MAG;}
@@ -883,10 +948,10 @@ unsigned int sensorsInitialization(param *Bmp2, param *Bmp3){
 	readParamBmp(Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
 	readParamBmp(Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
 
-	if(err != 0){HAL_GPIO_WritePin(LED2_GPIO_Port,LED2_Pin,GPIO_PIN_RESET);}
 	return err;
 }
 
+/*
 void readSensors(ArrayRaw *Array){
 	readIMU((uint8_t*) Array->IMU3, 140	, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
 	readIMU((uint8_t*) Array->IMU2, 56	, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
@@ -895,10 +960,11 @@ void readSensors(ArrayRaw *Array){
 	readMAG((uint8_t*) Array->MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
 	readPITOT((uint8_t*) Array->PITOT, &hi2c1);
 }
+*/
 
 void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert){
-	uint32_t cycleIMU3 = 10;
-	uint32_t cycleIMU2 = 4;
+	uint32_t cycleIMU3 = 10; //10
+	uint32_t cycleIMU2 = 4; //4
 
 	convIMU((uint8_t*) ArrayToConvert->IMU2, (float*) ArrayConverted->IMU2, cycleIMU2);
 	convIMU((uint8_t*) ArrayToConvert->IMU3, (float*) ArrayConverted->IMU3, cycleIMU3);
@@ -913,18 +979,21 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
 	if(hspi == &hspi2){
 		HAL_GPIO_WritePin(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, GPIO_PIN_SET);
 		HAL_GPIO_WritePin(NSS_GPS_GPIO_Port , NSS_GPS_Pin , GPIO_PIN_SET);
+		err_msg |= CPLT_SPI2;
 	}
 	else if(hspi == &hspi3){
 		HAL_GPIO_WritePin(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, GPIO_PIN_SET);
+		err_msg |= CPLT_SPI3;
 	}
 }
 
-void ADC_DMAConvCplt(DMA_HandleTypeDef *hdma){
-	__NOP();		//for debugging
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+	if(hadc == &hadc1){err_msg |= CPLT_ADC1;}
+	else if(hadc == &hadc2){err_msg |= CPLT_ADC2;}
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
-	__NOP();		//for debugging
+	err_msg |= CPLT_UART;
 }
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
@@ -933,8 +1002,8 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi){
 }
 
 void ADC_DMAError(DMA_HandleTypeDef *hdma){
-	if		(hdma == &hdma_adc1){err_msg |= ERR_ADC_ERRORCALLBACK;}
-	else if	(hdma == &hdma_adc2){err_msg |= ERR_ADC_ERRORCALLBACK;}
+	if		(hdma == &hdma_adc1){err_msg |= ERR_ADC1_ERRORCALLBACK;}
+	else if	(hdma == &hdma_adc2){err_msg |= ERR_ADC2_ERRORCALLBACK;}
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart){
