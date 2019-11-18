@@ -106,6 +106,7 @@ static void MX_USART6_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+  time_value t_now;
 	uint32_t readPinPlug = 0;
 	uint32_t timerPostLaunch = 0;
 	ArrayRaw DataRawArray = {0};
@@ -211,7 +212,15 @@ int main(void)
 	  }
 	  else{DataRawArray.FrameNumber = 1;}
 
-	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
+    //Detect apogee. Returns 8 bits: MSB->LSB, 0 bit not used:
+    //  7: Parachute trigger | 6: AP detected by dP | 5: AP detected by dV | 4: AP predicted with v_MECO_acc | 3: AP predicted with v_MECO_pito
+    //  2: Parachute armed   | 1: MECO detected
+    //Inputs: double acceleration (m/s^2), double velocity_pito (m/s), double pressure (Pa), uint8 groundConnection (1 = connected, 0 = broken), timeval time now
+	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 256).
+    t_now.tv_sec = (sTime.Hours * 60 + sTime.Minutes) * 60 + sTime.Seconds;
+    t_now.tv_msec = sTime.SubSeconds * sTime.SecondFraction;
+    __uint8_t detectEventsAndTriggerParachute(acceleration, velocity_pito, pressure, ground_connection, t_now);
+
 
 	  HAL_ADC_Start(&hadc1);												//Read battery voltage1, put in Vbat1
 	  HAL_ADC_Start(&hadc2);												//Read battery voltage2, put in Vbat2
