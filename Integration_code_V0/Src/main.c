@@ -171,7 +171,7 @@ int main(void)
    SD_cardMountInit(&fs, &file); 																//SD card initialization
 
    if(err_msg==0){HAL_GPIO_WritePin(LED2_GPIO_Port,LED2_Pin, GPIO_PIN_SET);}
-   epoch1 = 0;
+   epoch = 0;
    /*
    while(readPinPlug == 0){																//wait till liftoff wire is connected
 	   readPinPlug = 1;
@@ -199,7 +199,7 @@ int main(void)
 	  //htim3.Instance->CNT = 0;										//put back the CNT from timer3 (for sampling) to zero
 	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_SET);
 	  sample = 0;
-	  epoch1++;
+	  epoch++;
 	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 255).
 	  timerPostLaunch = __HAL_TIM_GET_COUNTER(&htim2);					//Check time (counter) post launch
 
@@ -215,7 +215,7 @@ int main(void)
 	  convertSensors((ArrayConv*)pointDataConvArray, (ArrayRaw*)pointDataRawArrayFreez);	//Convert the Data if needed (IMU-BMP-MAG-PITOT)
 	  //Process GPS raw data to float
 
-	  if(epoch1 == 5){
+	  if(epoch == 5){
 		  DataRawArray.FrameNumber = 2;
 		  //while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
 		  //READ GPS DMA			----- ADD THIS -----
@@ -257,25 +257,20 @@ int main(void)
 
 	  //WRITE SD CARD DMA			----- ADD THIS -----
 	  FRESULT r;
-	  char buffer1[10]={'a','b','c','d','e','f','g','h','\r','\n'};
-	  for(uint32_t i=0;i<10;i++){
-		  test.buffer[i] = (uint32_t)buffer1[i];
-	  }
-	  //test.buffer = {'a','b','c','d','e','f','g','h','\r','\n'};
-	  if(epoch1 == 5){
-		  epoch1 = 0;
+
+	  if(epoch == 5){
+		  epoch = 0;
 		  r = f_sync(&file);
 		  HAL_Delay(10);
-		  //r = f_write(&file, (uint8_t*) pointtest->buffer, 40, &bw);
-		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->IMU3, sizeof(DataRawArrayFreez), &bw);
-		  //r = f_write(&file, (uint8_t*) &buffer, 10, &bw);
+		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->FrameNumber, SIZEWITHGPS, &bw);
+		  HAL_UART_Transmit_DMA(&huart6, (uint8_t*) pointDataRawArrayFreez->FrameNumber, (uint16_t) SIZEWITHGPS);
+
 	  }
 	  else{
-		  //r = f_write(&file, (uint8_t*) pointtest->buffer, 40, &bw);
-		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->IMU3, sizeof(DataRawArrayFreez), &bw);
+		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->FrameNumber, SIZEWITHOUTGPS, &bw);
+		  HAL_UART_Transmit_DMA(&huart6, (uint8_t*) pointDataRawArrayFreez->FrameNumber, (uint16_t) SIZEWITHOUTGPS);
 		  HAL_Delay(10);
 		  r = f_sync(&file);
-		  //r = f_write(&file, (uint8_t*) &buffer, 10, &bw);
 	  }
 	  __NOP();
 

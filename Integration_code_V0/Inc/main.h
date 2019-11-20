@@ -180,8 +180,8 @@ void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert);
 
 #define RESET_ERR_MSG					0x00FF;	//reset all errors except for the initialization errors
 
-#define SIZEWITHGPS						(0x54 + WATERMARK_IMU2 + WATERMARK_IMU3)
-#define SIZEWITHOUTGPS					(0x2A + WATERMARK_IMU2 + WATERMARK_IMU3)
+#define SIZEWITHGPS						(0x54 + WATERMARK_IMU2) //Removed watermark of IMU2
+#define SIZEWITHOUTGPS					(0x2A + WATERMARK_IMU2)
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
