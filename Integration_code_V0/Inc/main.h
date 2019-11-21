@@ -37,6 +37,7 @@ extern "C" {
 #include "BMP.h"
 #include "MAG.h"
 #include "PITOT.h"
+#include "apoapsis_detection.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
