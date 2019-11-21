@@ -117,6 +117,8 @@ int main(void)
 	FIL file;
 	UINT bw;
 
+	uint8_t statusEjection = 0;
+	uint8_t launch = 0;
 	uint16_t ADC_battery1=0, ADC_battery2=0;
 	uint32_t readPinPlug = 0;
 	uint32_t timerPostLaunch = 0;
@@ -129,6 +131,7 @@ int main(void)
 	ArrayConv DataConvArray = {{0.0}};
 	ArrayRaw *pointDataConvArray = &DataConvArray;
 	uint32_t epoch = 0;
+	time_value t_now;
 	//gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
 	//gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
   /* USER CODE END 1 */
@@ -165,6 +168,7 @@ int main(void)
   MX_USART6_UART_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+   HAL_GPIO_WritePin(LED1_GPIO_Port,LED1_Pin, GPIO_PIN_SET);
    HAL_Delay(10);
    DataRawArray.Endline2[0] = '\r';
    DataRawArray.Endline2[1] = '\n';
@@ -239,6 +243,10 @@ int main(void)
 	  }
 
 	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
+	  t_now.tv_sec = (sTime.Hours*60 + sTime.Minutes)*60 + sTime.Seconds;
+	  t_now.tv_msec = (sTime.SubSeconds / (sTime.SecondFraction+1.0))*1000;
+	  statusEjection = detectEventsAndTriggerParachute((double) DataConvArray.IMU2[2], (double) DataConvArray.PITOT, (double) DataConvArray.BMP3[1], launch, t_now);
+	  printf("%d:%d",t_now.tv_sec,statusEjection);
 
 	  //HAL_ADC_Start(&hadc1);										//Read battery voltage1
 	  //HAL_ADC_Start(&hadc2);										//Read battery voltage2
@@ -258,7 +266,7 @@ int main(void)
 	  DataRawArray.Battery2 = ADC_battery2;
 	  DataRawArray.Err_msg = (uint16_t) err_msg;
 	  err_msg &= RESET_ERR_MSG;
-	  DataRawArray.IMU3[0] = 'b';
+	  //DataRawArray.IMU3[0] = 'b';
 	  DataRawArrayFreez = DataRawArray;
 	  memset(pointDataRawArray, 0, sizeof(DataRawArray));
 	  //HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_RESET);

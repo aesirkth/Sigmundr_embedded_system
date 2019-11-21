@@ -1,0 +1,11 @@
+apoapsis_detection.c:3:5:timeDiff	24	static
+apoapsis_detection.c:7:11:chuteStaticTime	32	static
+apoapsis_detection.c:15:11:detectStart	16	static
+apoapsis_detection.c:24:11:detectMECO	64	static
+apoapsis_detection.c:57:11:tApoapsisFromVelocity	48	static
+apoapsis_detection.c:99:12:tApoapsisFromVelocityAtMECO	72	static
+apoapsis_detection.c:116:11:tApoapsisFromPressure	48	static
+apoapsis_detection.c:152:8:computeVelocity	40	static
+apoapsis_detection.c:168:11:triggerParachuteTime	40	static
+apoapsis_detection.c:178:11:triggerParachute	40	static
+apoapsis_detection.c:210:11:detectEventsAndTriggerParachute	128	static
