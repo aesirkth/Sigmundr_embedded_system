@@ -77,8 +77,8 @@ void convIMU(uint8_t *IMU_raw_data, float *IMUConv, uint32_t cycle);
 #define ICM_CMD_FIFO_NBYTE_H		0x01
 #define ICM_CMD_FIFO_NBYTE_L		0x18
 #define	WATERMARK_IMU3				(ICM_CMD_FIFO_NBYTE_H<<8 | ICM_CMD_FIFO_NBYTE_L)
-#define WATERMARK_IMU2				(WATERMARK_IMU3 * 2 / 5)
-//uint32_t WATERMARK_IMU3 = ICM_CMD_FIFO_NBYTE_H<<8 | ICM_CMD_FIFO_NBYTE_L;
-//uint32_t WATERMARK_IMU2 = (ICM_CMD_FIFO_NBYTE_H<<8 | ICM_CMD_FIFO_NBYTE_L) / 2.5;
+//#define WATERMARK_IMU2				(WATERMARK_IMU3 * 2 / 5)
+#define WATERMARK_IMU2				4*14 //4 sample per second, 14 bytes per sample
+
 
 #endif /* IMU_H_ */

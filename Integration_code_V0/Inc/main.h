@@ -53,7 +53,7 @@ struct teststruc{
 typedef struct teststruc teststruct;
 
 struct arrayRawFrame{
-	  uint8_t 	IMU3[WATERMARK_IMU3];						//MSB first		(500Hz)
+	  //uint8_t 	IMU3[WATERMARK_IMU3];						//MSB first		(500Hz)
 	  //uint8_t 	IMU3[1008];
 	  uint8_t 	FrameNumber;								//MSB first
 	  uint8_t	Status;										//MSB first

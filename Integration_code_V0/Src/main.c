@@ -76,6 +76,7 @@ DMA_HandleTypeDef hdma_usart6_tx;
 
 /* USER CODE BEGIN PV */
 RTC_TimeTypeDef sTime = {0};								//time from RTC
+RTC_DateTypeDef sDate = {0};								//time from RTC
 param Bmp2, Bmp3;											//compensation parameters for BMP
 uint32_t arm = 0;											//arm variable 	(extern)
 uint32_t launch = 0;										//launch variable (extern)
@@ -128,8 +129,8 @@ int main(void)
 	ArrayConv DataConvArray = {{0.0}};
 	ArrayRaw *pointDataConvArray = &DataConvArray;
 	uint32_t epoch = 0;
-	gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
-	gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
+	//gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
+	//gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
   /* USER CODE END 1 */
   
 
@@ -164,6 +165,9 @@ int main(void)
   MX_USART6_UART_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+   HAL_Delay(10);
+   DataRawArray.Endline2[0] = '\r';
+   DataRawArray.Endline2[1] = '\n';
    //HAL_TIM_Base_Start_IT(&htim3);																//timer for the sampling
    err_msg |= sensorsInitialization(&Bmp2, &Bmp3);												//Initialization of sensors (IMU,BMP,MAG)
    //if(HAL_ADC_Start_DMA(&hadc1, (uint32_t*) &ADC_battery1, 1) != HAL_OK){err_msg |= ERR_INIT_ADC1;}		//Initialization ADC1 (reading voltage Vbat1)
@@ -171,6 +175,7 @@ int main(void)
    SD_cardMountInit(&fs, &file); 																//SD card initialization
 
    if(err_msg==0){HAL_GPIO_WritePin(LED2_GPIO_Port,LED2_Pin, GPIO_PIN_SET);}
+   HAL_GPIO_WritePin(TELEM_GPIO_Port,TELEM_Pin,GPIO_PIN_SET); 									//Activate telem
    epoch = 0;
    /*
    while(readPinPlug == 0){																//wait till liftoff wire is connected
@@ -195,38 +200,43 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  //while(sample == 0); 												//Wait till new sample time (change by interrupt)
-	  HAL_Delay(100);
+	  HAL_Delay(1000);
 	  //htim3.Instance->CNT = 0;										//put back the CNT from timer3 (for sampling) to zero
-	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_SET);
+	  //HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_SET);
 	  sample = 0;
 	  epoch++;
 	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 255).
+	  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);					//read Date to unlock Time values
 	  timerPostLaunch = __HAL_TIM_GET_COUNTER(&htim2);					//Check time (counter) post launch
-
-	  //readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);
-	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2);
-
 	  DataRawArray.RTC_field[0] = sTime.Hours;								//Put RTC in the frame
 	  DataRawArray.RTC_field[1] = sTime.Minutes;
 	  DataRawArray.RTC_field[2] = sTime.Seconds;
 	  DataRawArray.RTC_field[3] = (uint8_t) sTime.SubSeconds;
 	  DataRawArray.Timer = timerPostLaunch;
 
+	  //readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);
+	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2);
+
 	  convertSensors((ArrayConv*)pointDataConvArray, (ArrayRaw*)pointDataRawArrayFreez);	//Convert the Data if needed (IMU-BMP-MAG-PITOT)
-	  //Process GPS raw data to float
 
 	  if(epoch == 5){
 		  DataRawArray.FrameNumber = 2;
+		  DataRawArray.Endline1[0] = 0;
+		  DataRawArray.Endline1[1] = 0;
 		  //while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
 		  //READ GPS DMA			----- ADD THIS -----
-		  gpsSelect();		//resets the CS pin
-		  GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
-		  gpsDeselect();	//sets the CS pin
+		  //gpsSelect();		//resets the CS pin
+		  //GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
+		  //gpsDeselect();	//sets the CS pin
 
 		  //to process the read packets, call this function below
-		  pointParsedGpsStruct = GPS_ProcessRawPacket();
+		  //pointParsedGpsStruct = GPS_ProcessRawPacket();
 	  }
-	  else{DataRawArray.FrameNumber = 1;}
+	  else{
+		  DataRawArray.FrameNumber = 1;
+		  DataRawArray.Endline1[0] = '\r';
+		  DataRawArray.Endline1[1] = '\n';
+	  }
 
 	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
 
@@ -248,33 +258,36 @@ int main(void)
 	  DataRawArray.Battery2 = ADC_battery2;
 	  DataRawArray.Err_msg = (uint16_t) err_msg;
 	  err_msg &= RESET_ERR_MSG;
-	  DataRawArray.Endline2[0] = '\r';
-	  DataRawArray.Endline2[1] = '\n';
 	  DataRawArray.IMU3[0] = 'b';
 	  DataRawArrayFreez = DataRawArray;
 	  memset(pointDataRawArray, 0, sizeof(DataRawArray));
-	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_RESET);
+	  //HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_RESET);
 
 	  //WRITE SD CARD DMA			----- ADD THIS -----
+	  //SEND TELEM DMA				----- ADD THIS -----
 	  FRESULT r;
-
+	  uint8_t testsend[10]={1,2,3,4,5,6,7,8,'\r','\n'};
+	  uint8_t testbyte = 2;
+	  uint8_t newl[2]={'\r','\n'};
 	  if(epoch == 5){
 		  epoch = 0;
-		  r = f_sync(&file);
+		  //r = f_sync(&file);
 		  HAL_Delay(10);
-		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->FrameNumber, SIZEWITHGPS, &bw);
-		  HAL_UART_Transmit_DMA(&huart6, (uint8_t*) pointDataRawArrayFreez->FrameNumber, (uint16_t) SIZEWITHGPS);
+		  //r = f_write(&file, (uint8_t*) &DataRawArrayFreez.FrameNumber, SIZEWITHGPS, &bw);
+		  //HAL_UART_Transmit_DMA(&huart6, (uint8_t*) &DataRawArrayFreez.FrameNumber, (uint16_t) SIZEWITHGPS);
 
 	  }
 	  else{
-		  r = f_write(&file, (uint8_t*) pointDataRawArrayFreez->FrameNumber, SIZEWITHOUTGPS, &bw);
-		  HAL_UART_Transmit_DMA(&huart6, (uint8_t*) pointDataRawArrayFreez->FrameNumber, (uint16_t) SIZEWITHOUTGPS);
-		  HAL_Delay(10);
-		  r = f_sync(&file);
+		  //r = f_write(&file, (uint8_t*) &DataRawArrayFreez.FrameNumber, SIZEWITHOUTGPS, &bw);
+		  HAL_UART_Transmit(&huart6, (uint8_t*) &DataRawArrayFreez.FrameNumber, (uint16_t) SIZEWITHOUTGPS,10);
+		  HAL_UART_Transmit(&huart6, (uint8_t*)&newl, 2,10);
+		  //HAL_UART_Transmit(&huart6, (uint8_t*)&testsend, sizeof(testsend),10);
+		  __NOP();
+		  //HAL_Delay(10);
+		  //r = f_sync(&file);
 	  }
 	  __NOP();
 
-	  //SEND TELEM DMA				----- ADD THIS -----
   }
   /* USER CODE END 3 */
 }
@@ -970,7 +983,7 @@ void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert){
 	uint32_t cycleIMU2 = 4; //4
 
 	convIMU((uint8_t*) ArrayToConvert->IMU2, (float*) ArrayConverted->IMU2, cycleIMU2);
-	convIMU((uint8_t*) ArrayToConvert->IMU3, (float*) ArrayConverted->IMU3, cycleIMU3);
+	//convIMU((uint8_t*) ArrayToConvert->IMU3, (float*) ArrayConverted->IMU3, cycleIMU3);
 	convBMP((int32_t*) ArrayToConvert->BMP2, (float*) ArrayConverted->BMP2);
 	convBMP((int32_t*) ArrayToConvert->BMP3, (float*) ArrayConverted->BMP3);
 	convMAG((uint8_t*) ArrayToConvert->MAG , (float*) ArrayConverted->MAG );
