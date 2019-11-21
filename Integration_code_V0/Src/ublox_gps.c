@@ -69,7 +69,9 @@ void gpsDeselect()
 
 void GPS_ReceiveRawPacket(SPI_HandleTypeDef * spiHandle)
 {
-	if(HAL_SPI_TransmitReceive(spiHandle, 255, &gpsbuf, (uint16_t)TOTAL_BUFFER_LENGTH, 100) == HAL_OK)
+	uint8_t TxBuffer[TOTAL_BUFFER_LENGTH];
+	memset(TxBuffer, 255, sizeof(TxBuffer));
+	if(HAL_SPI_TransmitReceive(spiHandle, 255, &gpsbuf, (uint16_t)TOTAL_BUFFER_LENGTH,100) == HAL_OK)
 	{
 //		//all packets are received here
 //		memset(copyBuffer, 0, sizeof(copyBuffer));

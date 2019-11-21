@@ -132,8 +132,8 @@ int main(void)
 	ArrayRaw *pointDataConvArray = &DataConvArray;
 	uint32_t epoch = 0;
 	time_value t_now;
-	//gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
-	//gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
+	gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
+	gpsParsedPacketTypeDef *pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
   /* USER CODE END 1 */
   
 
@@ -191,7 +191,7 @@ int main(void)
    }
    */
    //clearFIFO(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);		//clear the FIFO of the IMU
-   clearFIFO(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2); 	//clear the FIFO of the IMU
+   //clearFIFO(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2); 	//clear the FIFO of the IMU
    HAL_Delay(10);										//Wait that the fifo are cleared before arming and starting sampling
    arm = 1;
   /* USER CODE END 2 */
@@ -219,7 +219,7 @@ int main(void)
 	  DataRawArray.Timer = timerPostLaunch;
 
 	  //readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);
-	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2);
+	  //readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2);
 
 	  convertSensors((ArrayConv*)pointDataConvArray, (ArrayRaw*)pointDataRawArrayFreez);	//Convert the Data if needed (IMU-BMP-MAG-PITOT)
 
@@ -229,12 +229,16 @@ int main(void)
 		  DataRawArray.Endline1[1] = 0;
 		  //while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU2_FINISH_BEFORE_GPS;}
 		  //READ GPS DMA			----- ADD THIS -----
-		  //gpsSelect();		//resets the CS pin
-		  //GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
-		  //gpsDeselect();	//sets the CS pin
+		  HAL_Delay(100);
+		  gpsSelect();		//resets the CS pin
+		  GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
+		  gpsDeselect();	//sets the CS pin
 
 		  //to process the read packets, call this function below
-		  //pointParsedGpsStruct = GPS_ProcessRawPacket();
+		  HAL_Delay(100);
+		  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_SET);
+		  pointParsedGpsStruct = GPS_ProcessRawPacket();
+		  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_RESET);
 	  }
 	  else{
 		  DataRawArray.FrameNumber = 1;
@@ -243,10 +247,11 @@ int main(void)
 	  }
 
 	  //DETECT APOGEE FUNCTION		----- ADD THIS -----
+	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_SET);
 	  t_now.tv_sec = (sTime.Hours*60 + sTime.Minutes)*60 + sTime.Seconds;
 	  t_now.tv_msec = (sTime.SubSeconds / (sTime.SecondFraction+1.0))*1000;
 	  statusEjection = detectEventsAndTriggerParachute((double) DataConvArray.IMU2[2], (double) DataConvArray.PITOT, (double) DataConvArray.BMP3[1], launch, t_now);
-	  printf("%d:%d",t_now.tv_sec,statusEjection);
+	  HAL_GPIO_WritePin(SPEED_TEST_GPIO_Port,SPEED_TEST_Pin,GPIO_PIN_RESET);
 
 	  //HAL_ADC_Start(&hadc1);										//Read battery voltage1
 	  //HAL_ADC_Start(&hadc2);										//Read battery voltage2

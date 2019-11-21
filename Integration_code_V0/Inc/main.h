@@ -38,6 +38,7 @@ extern "C" {
 #include "MAG.h"
 #include "PITOT.h"
 #include "apoapsis_detection.h"
+#include "ublox_gps.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

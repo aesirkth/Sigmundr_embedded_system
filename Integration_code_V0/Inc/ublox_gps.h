@@ -270,12 +270,12 @@ typedef struct {
 	float currentLatitude;
 	float currentLongitude;
 	float currentAltitude;
-	fixParamTypeDef fixParamters;
 	float pDOP;
 	float hDOP;
 	float vDOP;
 	float magneticHeading;
 	float groundSpeedKmph;
+	fixParamTypeDef fixParamters;
 } gpsParsedPacketTypeDef;
 
 
