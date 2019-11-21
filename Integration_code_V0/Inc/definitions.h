@@ -29,7 +29,6 @@
 #define ROCKET_AREA             0.05*0.05*3.14  // Area of rocket (for drag computation)
 #define DRAG_CONSTANT_ROCKET    0.5            // Drag constant of rocket
 #define ROCKET_MASS             7.789               // Dry mass of rocket
-//#define ROCKET_MASS             6.113               // Dry mass of rocket
 #define FUEL_MASS               1.676               // Mass of fuel
 
 #define DRAG_CONSTANT_CHUTE     1.75            // Drag constant parachute
@@ -40,9 +39,9 @@
 #define T_MECO                  T_LIFTOFF + T_ENGINE_BURN   // Time of MECO
 
 #define CHUTE_ARM_TIME          5000            // Time after MECO for arming the parachute
-#define PARACHUTE_LATEST        25000           // Latest time when parachute should open (after liftoff)
+#define PARACHUTE_LATEST        16000           // Latest time when parachute should open (after liftoff)
 
-#define T_AP_BUFFER             2000            // Buffer time after detected AP by any measure for parachute deployment
+#define T_AP_BUFFER             0            // Buffer time after detected AP by any measure for parachute deployment
 
 #define PRESSURE_FOR_COMPUTATIION 0.8 * 101325  // For precomputing t_apoapsis with velocities
 #define DELTA_T                 10             // delta_t for precomputing t_apoapsis with velocities

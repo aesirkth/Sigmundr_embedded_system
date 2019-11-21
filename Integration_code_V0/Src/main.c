@@ -70,6 +70,7 @@ DMA_HandleTypeDef hdma_usart6_tx;
 
 /* USER CODE BEGIN PV */
 RTC_TimeTypeDef sTime = {0};								//time from RTC
+RTC_DateTypeDef sDate = {0};
 param Bmp2, Bmp3;											//compensation parameters for BMP
 uint32_t arm = 0;											//arm variable 	(extern)
 uint32_t launch = 0;										//launch variable (extern)
@@ -106,7 +107,9 @@ static void MX_USART6_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  time_value t_now;
+    time_value t_now;
+    uint8_t launch = 0;
+    uint8_t statusEjection = 0;
 	uint32_t readPinPlug = 0;
 	uint32_t timerPostLaunch = 0;
 	ArrayRaw DataRawArray = {0};
@@ -116,8 +119,8 @@ int main(void)
 	ArrayConv DataConvArray = {{0.0}};
 	ArrayRaw *pointDataConvArray = &DataConvArray;
 	uint32_t epoch = 0;
-	gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
-	gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
+	//gpsParsedPacketTypeDef parsedPacketData;		//added by sonal
+	//gpsParsedPacketTypeDef * pointParsedGpsStruct = &parsedPacketData; 		//added by sonal
   /* USER CODE END 1 */
   
 
@@ -154,8 +157,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
    //HAL_TIM_Base_Start_IT(&htim3);																//timer for the sampling
    err_msg |= sensorsInitialization(&Bmp2, &Bmp3);												//Initialization of sensors (IMU,BMP,MAG)
-   if(HAL_ADC_Start_DMA(&hadc1, (uint16_t*) pointDataRawArray->Battery1, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC1 (reading voltage Vbat1)
-   if(HAL_ADC_Start_DMA(&hadc2, (uint16_t*) pointDataRawArray->Battery2, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC2 (reading voltage Vbat2)
+   //if(HAL_ADC_Start_DMA(&hadc1, (uint16_t*) pointDataRawArray->Battery1, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC1 (reading voltage Vbat1)
+   //if(HAL_ADC_Start_DMA(&hadc2, (uint16_t*) pointDataRawArray->Battery2, 1) != HAL_OK){err_msg |= ERR_INIT_ADC;}		//Initialization ADC2 (reading voltage Vbat2)
    //err_msg |= SD card initialization		----- ADD THIS -----
 
    /*
@@ -167,7 +170,7 @@ int main(void)
 	   }
    }
    */
-   clearFIFO(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);		//clear the FIFO of the IMU
+   //clearFIFO(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3);		//clear the FIFO of the IMU
    clearFIFO(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2); 	//clear the FIFO of the IMU
    arm = 1;
   /* USER CODE END 2 */
@@ -179,21 +182,23 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  while(sample == 0); 												//Wait till new sample time (change by interrupt)
-	  htim3.Instance->CNT = 0;											//put back the CNT from timer3 (for sampling) to zero
+	  //while(sample == 0); 												//Wait till new sample time (change by interrupt)
+	  //htim3.Instance->CNT = 0;											//put back the CNT from timer3 (for sampling) to zero
+	  //HAL_Delay(100);
 	  sample = 0;
 	  epoch++;
 	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 256).
-	  timerPostLaunch = __HAL_TIM_GET_COUNTER(&htim2);					//Check time (counter) post launch
+	  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);					//sDate to unlock values
+	  //timerPostLaunch = __HAL_TIM_GET_COUNTER(&htim2);					//Check time (counter) post launch
 
-	  readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
-	  readIMU((uint8_t*) pointDataRawArray->IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
+	  //readIMU((uint8_t*) pointDataRawArray->IMU3, WATERMARK_IMU3, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
+	  readIMU((uint8_t*) &DataRawArray.IMU2, WATERMARK_IMU2, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
 
 	  DataRawArray.RTC_field[0] = sTime.Hours;								//Put RTC in the frame
 	  DataRawArray.RTC_field[1] = sTime.Minutes;
 	  DataRawArray.RTC_field[2] = sTime.Seconds;
 	  DataRawArray.RTC_field[3] = (uint8_t) sTime.SubSeconds;
-	  DataRawArray.Timer = timerPostLaunch;
+	  //DataRawArray.Timer = timerPostLaunch;
 
 	  convertSensors((ArrayConv*)pointDataConvArray, (ArrayRaw*)pointDataRawArrayFreez);	//Convert the Data if needed (IMU-BMP-MAG-PITOT)
 	  //Process GPS raw data to float
@@ -203,12 +208,12 @@ int main(void)
 		  epoch = 0;
 		  DataRawArray.FrameNumber = 2;
 		  //READ GPS DMA			----- ADD THIS -----
-		  gpsSelect();		//resets the CS pin
-		  GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
-		  gpsDeselect();	//sets the CS pin
+		  //gpsSelect();		//resets the CS pin
+		  //GPS_ReceiveRawPacket(&hspi2);		//read 600 bytes from the receiver over SPI with timeout 100ms
+		  //gpsDeselect();	//sets the CS pin
 
 		  //to process the read packets, call this function below
-		  pointParsedGpsStruct = GPS_ProcessRawPacket();
+		  //pointParsedGpsStruct = GPS_ProcessRawPacket();
 	  }
 	  else{DataRawArray.FrameNumber = 1;}
 
@@ -216,22 +221,22 @@ int main(void)
     //  7: Parachute trigger | 6: AP detected by dP | 5: AP detected by dV | 4: AP predicted with v_MECO_acc | 3: AP predicted with v_MECO_pito
     //  2: Parachute armed   | 1: MECO detected
     //Inputs: double acceleration (m/s^2), double velocity_pito (m/s), double pressure (Pa), uint8 groundConnection (1 = connected, 0 = broken), timeval time now
-	  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN); 					//sTime.Hours .Minutes .Seconds .SubSeconds (up to 256).
     t_now.tv_sec = (sTime.Hours * 60 + sTime.Minutes) * 60 + sTime.Seconds;
-    t_now.tv_msec = sTime.SubSeconds * sTime.SecondFraction;
-    __uint8_t detectEventsAndTriggerParachute(acceleration, velocity_pito, pressure, ground_connection, t_now);
+    t_now.tv_msec = (sTime.SubSeconds * sTime.SecondFraction)*1000;
+    statusEjection = detectEventsAndTriggerParachute((double)DataConvArray.IMU2[2], (double)DataConvArray.PITOT, (double)DataConvArray.BMP3[1], launch, t_now);
+    //__uint8_t detectEventsAndTriggerParachute(acceleration, velocity_pito, pressure, ground_connection, t_now);
 
 
-	  HAL_ADC_Start(&hadc1);												//Read battery voltage1, put in Vbat1
-	  HAL_ADC_Start(&hadc2);												//Read battery voltage2, put in Vbat2
+	  //HAL_ADC_Start(&hadc1);												//Read battery voltage1, put in Vbat1
+	  //HAL_ADC_Start(&hadc2);												//Read battery voltage2, put in Vbat2
 
-	  readPITOT((uint8_t*) pointDataRawArray->PITOT, &hi2c1);
+	  readPITOT((uint8_t*) &DataRawArray.PITOT, &hi2c1);
 
 	  while(hspi3.State != HAL_SPI_STATE_READY){err_msg |= WAIT_IMU3_FINISH_BEFORE_BMP3;}
-	  readBMPCal((int32_t*) pointDataRawArray->BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
+	  readBMPCal((int32_t*) &DataRawArray.BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
 	  while(hspi2.State != HAL_SPI_STATE_READY){err_msg |= WAIT_GPS_FINISH_BEFORE_BMP2};
-	  readBMPCal((int32_t*) pointDataRawArray->BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
-	  readMAG((uint8_t*) pointDataRawArray->MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
+	  readBMPCal((int32_t*) &DataRawArray.BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
+	  readMAG((uint8_t*) &DataRawArray.MAG, NSS_MAG_GPIO_Port, NSS_MAG_Pin, &hspi2);
 	  while((hdma_adc1.State != HAL_DMA_STATE_READY) && (hdma_adc2.State != HAL_DMA_STATE_READY)){err_msg |= WAIT_ADC_TO_FINISH};
 
 	  DataRawArray.Err_msg = (uint16_t) err_msg;
@@ -892,7 +897,7 @@ static void MX_GPIO_Init(void)
 unsigned int sensorsInitialization(param *Bmp2, param *Bmp3){
 	unsigned int err = 0;
 	if(initIMU_slow(NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi2) != 1){err |= ERR_INIT_IMU2;}
-	if(initIMU_fast(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3) != 1){err |= ERR_INIT_IMU3;}
+	//if(initIMU_fast(NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi3) != 1){err |= ERR_INIT_IMU3;}
 	if(initBMP(		NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2) != 1){err |= ERR_INIT_BMP2;}
 	if(initBMP(		NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3) != 1){err |= ERR_INIT_BMP3;}
 	if(initMAG(		NSS_MAG_GPIO_Port , NSS_MAG_Pin , &hspi2) != 1){err |= ERR_INIT_MAG;}
@@ -905,7 +910,7 @@ unsigned int sensorsInitialization(param *Bmp2, param *Bmp3){
 }
 
 void readSensors(ArrayRaw *Array){
-	readIMU((uint8_t*) Array->IMU3, 140	, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
+	//readIMU((uint8_t*) Array->IMU3, 140	, NSS_IMU3_GPIO_Port, NSS_IMU3_Pin, &hspi2);
 	readIMU((uint8_t*) Array->IMU2, 56	, NSS_IMU2_GPIO_Port, NSS_IMU2_Pin, &hspi3);
 	readBMPCal((int32_t*) Array->BMP2, Bmp2, NSS_BMP2_GPIO_Port, NSS_BMP2_Pin, &hspi2);
 	readBMPCal((int32_t*) Array->BMP3, Bmp3, NSS_BMP3_GPIO_Port, NSS_BMP3_Pin, &hspi3);
@@ -918,7 +923,7 @@ void convertSensors(ArrayConv *ArrayConverted, ArrayRaw *ArrayToConvert){
 	uint32_t cycleIMU2 = 4;
 
 	convIMU((uint8_t*) ArrayToConvert->IMU2, (float*) ArrayConverted->IMU2, cycleIMU2);
-	convIMU((uint8_t*) ArrayToConvert->IMU3, (float*) ArrayConverted->IMU3, cycleIMU3);
+	//convIMU((uint8_t*) ArrayToConvert->IMU3, (float*) ArrayConverted->IMU3, cycleIMU3);
 	convBMP((int32_t*) ArrayToConvert->BMP2, (float*) ArrayConverted->BMP2);
 	convBMP((int32_t*) ArrayToConvert->BMP3, (float*) ArrayConverted->BMP3);
 	convMAG((uint8_t*) ArrayToConvert->MAG , (float*) ArrayConverted->MAG );
@@ -968,7 +973,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-
+	__NOP();
   /* USER CODE END Error_Handler_Debug */
 }
 

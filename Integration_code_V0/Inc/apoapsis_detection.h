@@ -9,5 +9,5 @@ typedef struct {
     int tv_msec;
 }time_value;
 
-__uint8_t detectEventsAndTriggerParachute();
+__uint8_t detectEventsAndTriggerParachute(double acceleration, double velocity_pito, double pressure, __uint8_t ground_connection, time_value t_now);
 #endif

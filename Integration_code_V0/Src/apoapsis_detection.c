@@ -16,7 +16,7 @@ __uint8_t detectStart(int wire_connection)
 {
     if(wire_connection == 0)
     {
-        return -1;
+        return 1;
     }
     return 0;
 }
@@ -288,36 +288,36 @@ __uint8_t detectEventsAndTriggerParachute(double acceleration, double velocity_p
     // Trigger Parachute (t_apoapsis times already have t_buffer in them)
     if(!parachute_triggers[0]){
         // Precomputed t_apoapsis with v_pito at MECO
-        parachute_triggers[0] = triggerParachuteTime(t_apoapsis_velocity_static_pito);
+        parachute_triggers[0] = triggerParachuteTime(t_apoapsis_velocity_static_pito, t_now);
     }
     if(!parachute_triggers[1]){
         // Precomputed t_apoapsis with v_acc at MECO
-        parachute_triggers[1] = triggerParachuteTime(t_apoapsis_velocity_static_acc);
+        parachute_triggers[1] = triggerParachuteTime(t_apoapsis_velocity_static_acc, t_now);
     }
     if(!parachute_triggers[2] && pressure_AP){
-        parachute_triggers[2] = triggerParachuteTime(t_apoapsis_pressure);
+        parachute_triggers[2] = triggerParachuteTime(t_apoapsis_pressure, t_now);
     }
     if(!parachute_triggers[3] && velocity_AP){
-        parachute_triggers[3] = triggerParachuteTime(t_apoapsis_velocity);
+        parachute_triggers[3] = triggerParachuteTime(t_apoapsis_velocity, t_now);
     }
     
     if(!velocity_AP_MECO_acc){
         time_value tmp = t_apoapsis_velocity_static_acc;
         tmp.tv_sec -= T_AP_BUFFER / 1000;
         tmp.tv_msec -= (T_AP_BUFFER % 1000);
-        velocity_AP_MECO_acc = triggerParachuteTime(tmp);
+        velocity_AP_MECO_acc = triggerParachuteTime(tmp, t_now);
     }
 
     if(!velocity_AP_MECO_pito){
         time_value tmp = t_apoapsis_velocity_static_pito;
         tmp.tv_sec -= T_AP_BUFFER / 1000;
         tmp.tv_msec -= (T_AP_BUFFER % 1000);
-        velocity_AP_MECO_pito = triggerParachuteTime(tmp);
+        velocity_AP_MECO_pito = triggerParachuteTime(tmp, t_now);
     }
 
     
     // Process parachute triggers
-    parachute_deployed = triggerParachute(parachute_triggers, t_parachute_arm, t_parachute_latest);
+    parachute_deployed = triggerParachute(parachute_triggers, t_parachute_arm, t_parachute_latest, t_now);
 
     // Last resort parachute triggering
     if(!parachute_deployed){
