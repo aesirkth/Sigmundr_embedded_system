@@ -3,6 +3,7 @@
 
 #include "definitions.h"
 #include "stdlib.h"
+#include "sys/types.h"
 
 typedef struct {
     int tv_sec;
