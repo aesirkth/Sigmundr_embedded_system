@@ -208,6 +208,7 @@ __uint8_t triggerParachute(__uint8_t parachuteTriggers[4], time_value t_arm, tim
 //  2: Parachute armed   | 1: MECO detected
 //Inputs: double acceleration (m/s^2), double velocity_pito (m/s), double pressure (Pa), uint8 groundConnection (1 = connected, 0 = broken)
 __uint8_t detectEventsAndTriggerParachute(double acceleration, double velocity_pito, double pressure, __uint8_t ground_connection, time_value t_now){
+    acceleration = acceleration * G;
     static time_value t_liftoff, t_MECO, t_apoapsis_velocity_static_pito, 
             t_apoapsis_velocity_static_acc, t_apoapsis_pressure, t_apoapsis_velocity,
             t_parachute_arm, t_parachute_latest;
