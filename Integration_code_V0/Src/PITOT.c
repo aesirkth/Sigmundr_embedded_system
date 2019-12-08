@@ -24,6 +24,7 @@ void convSpeedPITOT(uint8_t *PITOT_raw, float *speed)
 	uint16_t output_min = 1638, output_max = 14745; //10% to 90% calibration with 2^14 counts
 	float pressure = 0.0, pressure_min = 0.0, pressure_max = 5.0 * 34474; //in Pa (1 PSI = 34474 Pa)
 	pressure = (((float)(output - output_min))*(pressure_max - pressure_min) / (float)(output_max - output_min)) + pressure_min;
+	if(pressure < 0){pressure = -pressure;} //absolute value for squarre root
 
 	//Convert the pressure to velocity
 	float rho = 1.225;

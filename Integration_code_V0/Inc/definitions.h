@@ -39,7 +39,7 @@
 #define T_MECO                  T_LIFTOFF + T_ENGINE_BURN   // Time of MECO
 
 #define CHUTE_ARM_TIME          5000            // Time after MECO for arming the parachute
-#define PARACHUTE_LATEST        16000           // Latest time when parachute should open (after liftoff)
+#define PARACHUTE_LATEST        14000           // Latest time when parachute should open (after liftoff)
 
 #define T_AP_BUFFER             0            // Buffer time after detected AP by any measure for parachute deployment
 

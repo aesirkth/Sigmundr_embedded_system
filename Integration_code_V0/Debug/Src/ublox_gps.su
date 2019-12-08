@@ -1,6 +1,6 @@
 ublox_gps.c:56:6:gpsSelect	8	static
 ublox_gps.c:63:6:gpsDeselect	8	static
-ublox_gps.c:70:6:GPS_ReceiveRawPacket	624	static
+ublox_gps.c:70:6:GPS_ReceiveRawPacket	24	static
 ublox_gps.c:108:26:GPS_ProcessRawPacket	24	static
 ublox_gps.c:141:6:separatePackets	16	static
 ublox_gps.c:252:6:storeParsedData	40	static
