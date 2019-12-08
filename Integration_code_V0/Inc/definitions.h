@@ -5,7 +5,7 @@
 #define TIME_STEP               10             // milliseconds
 
 //Physical simulation variables
-#define G                       9.81            // Acceleration of earth
+#define G                       9.80665         // Acceleration of earth
 #define MOL_AIR                 0.0289644       // Molar mass of air
 #define GAS_CONSTANT            8.3144598       // Gas constant R
 #define TEMPERATURE             255             // Temperature of the air in kelvin
